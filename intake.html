@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request a Campaign — FrontPorch Marketing</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.css" />
+  <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#F5F0E8; --white:#fff; --border:#e5e7eb;
+      --accent:#C07830; --accent-dark:#A06020;
+      --brand-dark:#2A2215;
+      --green:#22c55e; --green-bg:#dcfce7; --green-text:#15803d;
+      --text:#111827; --text2:#374151; --muted:#6b7280;
+      --red:#ef4444; --red-bg:#fee2e2;
+      --font:'Inter',system-ui,sans-serif;
+    }
+    body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── HEADER ── */
+    .header { background:var(--white); border-bottom:1px solid var(--border); padding:0 32px; height:62px; display:flex; align-items:center; justify-content:space-between; }
+    .brand { font-size:20px; font-weight:900; color:var(--brand-dark); letter-spacing:-.5px; }
+    .brand em { color:var(--accent); font-style:italic; }
+    .header-sub { font-size:13px; color:var(--muted); }
+
+    /* ── HERO ── */
+    .hero { background:linear-gradient(135deg,#C07830 0%,#8B5520 60%,#5C3810 100%); padding:52px 32px; text-align:center; color:#fff; }
+    .hero-tag { display:inline-block; background:rgba(255,255,255,.15); border-radius:20px; padding:5px 14px; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; margin-bottom:16px; }
+    .hero-title { font-size:36px; font-weight:900; letter-spacing:-.5px; margin-bottom:10px; }
+    .hero-sub { font-size:16px; opacity:.85; max-width:520px; margin:0 auto; line-height:1.6; }
+
+    /* ── STEPS INDICATOR ── */
+    .steps-bar { background:var(--white); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:center; gap:0; }
+    .step { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--muted); }
+    .step.active { color:var(--accent); }
+    .step.done { color:var(--green-text); }
+    .step-num { width:26px; height:26px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+    .step.done .step-num { background:var(--green); border-color:var(--green); color:#fff; }
+    .step.active .step-num { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .step-divider { width:40px; height:2px; background:var(--border); margin:0 8px; flex-shrink:0; }
+    .step-divider.done { background:var(--green); }
+
+    /* ── FORM WRAPPER ── */
+    .form-wrap { max-width:680px; margin:40px auto; padding:0 24px 60px; }
+
+    /* ── CARDS ── */
+    .form-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:32px; margin-bottom:20px; display:none; }
+    .form-card.active { display:block; }
+    .card-icon { font-size:28px; margin-bottom:10px; }
+    .card-title { font-size:20px; font-weight:900; margin-bottom:4px; }
+    .card-sub { font-size:14px; color:var(--muted); margin-bottom:28px; line-height:1.5; }
+
+    /* ── FIELDS ── */
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+    .field-row.single { grid-template-columns:1fr; }
+    .field-row.triple { grid-template-columns:1fr 1fr 1fr; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    .field label { font-size:13px; font-weight:700; color:var(--text2); }
+    .field label span { color:var(--accent); margin-left:2px; }
+    .field input, .field select, .field textarea {
+      border:1.5px solid var(--border); border-radius:10px; padding:11px 14px;
+      font-size:14px; font-family:var(--font); outline:none; background:#fafafa;
+      transition:border-color .15s, background .15s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color:var(--accent); background:#fff;
+    }
+    .field textarea { resize:vertical; min-height:90px; }
+    .field-hint { font-size:12px; color:var(--muted); margin-top:2px; }
+    .field-error { font-size:12px; color:var(--red); margin-top:2px; display:none; }
+
+    /* ── ZONE MAP ── */
+    #zone-map { height:340px; border-radius:12px; overflow:hidden; border:2px solid var(--border); margin-bottom:10px; }
+    #zone-map.drawing { border-color:var(--accent); cursor:crosshair !important; }
+    #zone-map.drawing * { cursor:crosshair !important; }
+    .map-toolbar { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+    .map-search { flex:1; border:1.5px solid var(--border); border-radius:9px; padding:9px 13px; font-size:14px; font-family:var(--font); outline:none; min-width:180px; }
+    .map-search:focus { border-color:var(--accent); }
+    .map-btn { padding:8px 14px; border-radius:9px; font-size:12px; font-weight:700; border:none; cursor:pointer; transition:all .15s; }
+    .map-btn.draw-on  { background:var(--accent); color:#fff; }
+    .map-btn.draw-off { background:#f3f4f6; color:var(--text2); }
+    .map-btn.clear    { background:var(--red-bg); color:var(--red-text); }
+    .zone-status { font-size:12px; border-radius:8px; padding:8px 12px; margin-bottom:12px; display:none; }
+    .zone-status.ok  { background:var(--green-bg); color:var(--green-text); display:block; }
+    .zone-status.tip { background:#fdf6ee; color:#92400e; display:block; border:1px solid #f5c97a; }
+    .zone-count-badge { background:var(--green-bg); color:var(--green-text); font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:8px; display:none; }
+
+    /* ── OPTION TILES (flyer type) ── */
+    .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:4px; }
+    .tile { border:2px solid var(--border); border-radius:12px; padding:14px 10px; text-align:center; cursor:pointer; transition:all .15s; user-select:none; }
+    .tile:hover { border-color:var(--accent); background:#fdf6ee; }
+    .tile.selected { border-color:var(--accent); background:#fdf6ee; }
+    .tile-icon { font-size:24px; margin-bottom:6px; }
+    .tile-label { font-size:12px; font-weight:700; }
+
+    /* ── BUDGET TILES ── */
+    .budget-tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:4px; }
+    .budget-tile { border:2px solid var(--border); border-radius:12px; padding:12px 8px; text-align:center; cursor:pointer; transition:all .15s; user-select:none; }
+    .budget-tile:hover { border-color:var(--accent); }
+    .budget-tile.selected { border-color:var(--accent); background:#fdf6ee; }
+    .budget-tile-label { font-size:13px; font-weight:700; }
+    .budget-tile-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+
+    /* ── REFERRAL ── */
+    .ref-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .ref-chip { border:1.5px solid var(--border); border-radius:8px; padding:9px 10px; text-align:center; cursor:pointer; font-size:12px; font-weight:600; color:var(--text2); transition:all .15s; user-select:none; }
+    .ref-chip:hover { border-color:var(--accent); }
+    .ref-chip.selected { border-color:var(--accent); background:#fdf6ee; color:var(--accent); }
+
+    /* ── BUTTONS ── */
+    .btn-row { display:flex; gap:12px; margin-top:28px; }
+    .btn-next { flex:1; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:800; cursor:pointer; transition:background .15s; }
+    .btn-next:hover { background:var(--accent-dark); }
+    .btn-next:disabled { background:#d1d5db; cursor:not-allowed; }
+    .btn-back { padding:14px 20px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; color:var(--text2); }
+
+    /* ── SUCCESS STATE ── */
+    .success-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:48px 32px; text-align:center; display:none; }
+    .success-card.active { display:block; }
+    .success-icon { font-size:56px; margin-bottom:16px; }
+    .success-title { font-size:26px; font-weight:900; margin-bottom:10px; }
+    .success-sub { font-size:15px; color:var(--muted); margin-bottom:28px; line-height:1.6; }
+    .success-token-box { background:var(--bg); border:1.5px solid var(--border); border-radius:12px; padding:16px 20px; font-size:13px; margin-bottom:24px; text-align:left; }
+    .success-token-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+    .success-token-val { font-family:monospace; font-size:14px; color:var(--accent); word-break:break-all; }
+    .portal-link-btn { display:inline-block; background:var(--accent); color:#fff; padding:13px 28px; border-radius:12px; font-size:14px; font-weight:700; text-decoration:none; }
+
+    /* ── PROGRESS BAR ── */
+    .progress-track { height:4px; background:var(--border); border-radius:2px; margin-bottom:32px; overflow:hidden; }
+    .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width .4s ease; }
+
+    @media (max-width:600px) {
+      .hero { padding:36px 20px; }
+      .hero-title { font-size:26px; }
+      .field-row { grid-template-columns:1fr; }
+      .field-row.triple { grid-template-columns:1fr 1fr; }
+      .tiles { grid-template-columns:1fr 1fr; }
+      .budget-tiles { grid-template-columns:1fr 1fr; }
+      .steps-bar { padding:12px 16px; gap:0; }
+      .step-divider { width:20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand">Front<em>Porch</em> <span style="font-size:13px;font-weight:400;color:var(--muted);">Marketing</span></div>
+  <div class="header-sub">Campaign Request</div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">🚀 Get Started</div>
+  <div class="hero-title">Request Your Campaign</div>
+  <div class="hero-sub">Tell us about your business and where you want to reach. We'll get back to you within one business day.</div>
+</div>
+
+<!-- STEPS -->
+<div class="steps-bar" id="steps-bar">
+  <div class="step active" id="step-ind-1"><div class="step-num">1</div> Contact</div>
+  <div class="step-divider" id="div-1"></div>
+  <div class="step" id="step-ind-2"><div class="step-num">2</div> Campaign</div>
+  <div class="step-divider" id="div-2"></div>
+  <div class="step" id="step-ind-3"><div class="step-num">3</div> Flyer</div>
+  <div class="step-divider" id="div-3"></div>
+  <div class="step" id="step-ind-4"><div class="step-num">4</div> Budget</div>
+</div>
+
+<div class="form-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:25%;"></div></div>
+
+  <!-- ── STEP 1: CONTACT ── -->
+  <div class="form-card active" id="card-1">
+    <div class="card-icon">👋</div>
+    <div class="card-title">About You</div>
+    <div class="card-sub">Let's start with your contact info so we can get in touch to confirm your campaign.</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>First Name <span>*</span></label>
+        <input type="text" id="f-first" placeholder="Jane" autocomplete="given-name" />
+        <div class="field-error" id="err-first">Please enter your first name.</div>
+      </div>
+      <div class="field">
+        <label>Last Name <span>*</span></label>
+        <input type="text" id="f-last" placeholder="Smith" autocomplete="family-name" />
+        <div class="field-error" id="err-last">Please enter your last name.</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Business Name <span>*</span></label>
+        <input type="text" id="f-biz" placeholder="Acme Roofing Co." autocomplete="organization" />
+        <div class="field-error" id="err-biz">Please enter your business name.</div>
+      </div>
+      <div class="field">
+        <label>Phone <span>*</span></label>
+        <input type="tel" id="f-phone" placeholder="(512) 555-0100" autocomplete="tel" />
+        <div class="field-error" id="err-phone">Please enter a phone number.</div>
+      </div>
+    </div>
+    <div class="field-row single">
+      <div class="field">
+        <label>Email Address <span>*</span></label>
+        <input type="email" id="f-email" placeholder="jane@acmeroofing.com" autocomplete="email" />
+        <div class="field-error" id="err-email">Please enter a valid email address.</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-next" onclick="nextStep(1)">Continue → Campaign Details</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: CAMPAIGN ── -->
+  <div class="form-card" id="card-2">
+    <div class="card-icon">📍</div>
+    <div class="card-title">Campaign Details</div>
+    <div class="card-sub">Where do you want to reach? We'll assign Porch Pros to cover your target area.</div>
+
+    <div class="field-row single">
+      <div class="field">
+        <label>Campaign Name <span>*</span></label>
+        <input type="text" id="f-campaign" placeholder="e.g. Summer Push — Cedar Park" />
+        <div class="field-error" id="err-campaign">Please name your campaign.</div>
+      </div>
+    </div>
+    <div class="field-row single">
+      <div class="field">
+        <label>Target Area / Neighborhoods <span>*</span></label>
+        <input type="text" id="f-location" placeholder="e.g. Cedar Park, TX — Maple St area" oninput="debounceGeocode(this.value)" />
+        <div class="field-hint">Type a city, zip, or neighborhood — the map will jump there automatically</div>
+        <div class="field-error" id="err-location">Please describe your target area.</div>
+      </div>
+    </div>
+
+    <!-- ── ZONE MAP ── -->
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <label style="font-size:13px;font-weight:700;color:var(--text2);">📍 Select Your Coverage Area <span style="color:var(--accent);">*</span></label>
+        <span class="zone-count-badge" id="zone-count-badge" style="display:none;"></span>
+      </div>
+
+      <!-- Search row -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="flex:1;position:relative;min-width:200px;">
+          <input class="map-search" id="map-search" placeholder="Search neighborhood, street, or zip code…"
+            oninput="debounceSearch(this.value)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();runSearch();}"
+            autocomplete="off" />
+          <div id="search-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;margin-top:4px;overflow:hidden;max-height:260px;overflow-y:auto;"></div>
+        </div>
+        <button type="button" class="map-btn draw-off" onclick="locateMe()">📍 My Location</button>
+        <button type="button" class="map-btn draw-off" id="rect-btn" onclick="startDraw()">✏️ Draw Custom Zone</button>
+      </div>
+
+      <!-- Status messages -->
+      <div class="zone-status tip" id="zone-tip">🔍 Search for your neighborhood above — we'll highlight the boundary automatically. Or click <strong>Draw Custom Zone</strong> to trace your exact area on the map.</div>
+      <div class="zone-status ok"  id="zone-ok"  style="display:none;"></div>
+      <div class="field-error"     id="err-zone" style="margin-bottom:8px;">Please select at least one coverage area.</div>
+
+      <!-- Map -->
+      <div id="zone-map" style="border-radius:12px;overflow:hidden;border:2px solid var(--border);"></div>
+
+      <!-- Pending zone confirm bar -->
+      <div id="pending-bar" style="display:none;align-items:center;gap:10px;margin-top:10px;padding:12px 16px;background:#fdf6ee;border:1.5px solid var(--accent);border-radius:11px;">
+        <div style="font-size:13px;flex:1;"><strong id="pending-name">Area</strong> boundary shown on map — does this look right?</div>
+        <button type="button" class="btn-next" style="padding:8px 18px;font-size:13px;" onclick="confirmPendingZone()">✅ Add This Zone</button>
+        <button type="button" class="btn-back" style="padding:8px 14px;font-size:13px;" onclick="clearPending()">✕ Cancel</button>
+      </div>
+
+      <!-- Added zones list -->
+      <div id="drawn-zones-list" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Target Number of Homes <span>*</span></label>
+        <input type="number" id="f-homes" placeholder="e.g. 500" min="250" />
+        <div class="field-hint">Minimum 250 homes</div>
+        <div class="field-error" id="err-homes">Please enter a target number of homes.</div>
+      </div>
+      <div class="field">
+        <label>Preferred Start Date</label>
+        <input type="date" id="f-startdate" />
+        <div class="field-hint">We can typically get someone started within 2 business days</div>
+      </div>
+    </div>
+
+    <!-- Live price estimate -->
+    <div id="price-estimate" style="display:none;background:linear-gradient(135deg,#C07830,#8B5520);border-radius:14px;padding:20px 24px;margin-bottom:20px;color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;opacity:.75;margin-bottom:4px;">Estimated Campaign Cost</div>
+          <div style="font-size:36px;font-weight:900;letter-spacing:-1px;" id="est-total">$0.00</div>
+          <div style="font-size:13px;opacity:.8;margin-top:3px;" id="est-breakdown">—</div>
+        </div>
+        <div style="background:rgba(255,255,255,.15);border-radius:12px;padding:14px 18px;text-align:center;min-width:140px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.75;margin-bottom:4px;">Rate per Flyer</div>
+          <div style="font-size:24px;font-weight:900;" id="est-rate">$0.50</div>
+          <div style="font-size:11px;opacity:.75;margin-top:2px;" id="est-rate-note">standard rate</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2);font-size:12px;opacity:.75;">
+        💡 <strong>Volume discounts:</strong> 2,500+ flyers → <strong>$0.45</strong> &nbsp;·&nbsp; 5,000+ flyers → <strong>$0.40</strong> — save up to <span id="est-savings">$0</span>.
+      </div>
+    </div>
+
+    <div class="field-row single">
+      <div class="field">
+        <label>Special Instructions</label>
+        <textarea id="f-instructions" placeholder="Anything specific? e.g. avoid gated communities, focus on homes with driveways, certain streets to prioritize…"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="prevStep(2)">← Back</button>
+      <button class="btn-next" onclick="nextStep(2)">Continue → Flyer Info</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: FLYER ── -->
+  <div class="form-card" id="card-3">
+    <div class="card-icon">🗂</div>
+    <div class="card-title">Flyer & Materials</div>
+    <div class="card-sub">Tell us about what you're distributing so we can plan the right approach.</div>
+
+    <div class="field-row single" style="margin-bottom:8px;">
+      <div class="field">
+        <label>Type of Material <span>*</span></label>
+      </div>
+    </div>
+    <div class="tiles" id="flyer-tiles" style="margin-bottom:20px;grid-template-columns:repeat(4,1fr);">
+      <div class="tile" onclick="selectTile(this,'flyer-type','Door Hanger')">
+        <div class="tile-icon">🚪</div>
+        <div class="tile-label">Door Hanger</div>
+      </div>
+      <div class="tile" onclick="selectTile(this,'flyer-type','Flyer / Postcard')">
+        <div class="tile-icon">📄</div>
+        <div class="tile-label">Flyer / Postcard</div>
+      </div>
+      <div class="tile" onclick="selectTile(this,'flyer-type','Brochure')">
+        <div class="tile-icon">📋</div>
+        <div class="tile-label">Brochure</div>
+      </div>
+      <div class="tile" onclick="selectTile(this,'flyer-type','Other')">
+        <div class="tile-icon">📦</div>
+        <div class="tile-label">Other</div>
+      </div>
+    </div>
+    <div class="field-error" id="err-flyer-type" style="margin-bottom:14px;">Please select a material type.</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Artwork Ready?</label>
+        <select id="f-artwork">
+          <option value="">Select…</option>
+          <option>Yes — I have print-ready files</option>
+          <option>In progress — almost ready</option>
+          <option>No — I need design help</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Printing Needed?</label>
+        <select id="f-printing">
+          <option value="">Select…</option>
+          <option>No — I'll supply printed materials</option>
+          <option>Yes — please quote printing</option>
+          <option>Not sure yet</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row single">
+      <div class="field">
+        <label>Additional Notes on Materials</label>
+        <textarea id="f-flyer-notes" placeholder="Size, quantity on hand, special handling, messaging focus…" style="min-height:70px;"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="prevStep(3)">← Back</button>
+      <button class="btn-next" onclick="nextStep(3)">Continue → Budget</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 4: BUDGET & REFERRAL ── -->
+  <div class="form-card" id="card-4">
+    <div class="card-icon">💰</div>
+    <div class="card-title">Budget & Referral</div>
+    <div class="card-sub">This helps us put together the right proposal for you — no obligation.</div>
+
+    <!-- Calculated price summary pulled from step 2 -->
+    <div id="budget-summary" style="background:linear-gradient(135deg,#C07830,#8B5520);border-radius:14px;padding:22px 24px;margin-bottom:20px;color:#fff;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;opacity:.75;margin-bottom:6px;">Your Estimated Total</div>
+      <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+        <div style="font-size:42px;font-weight:900;letter-spacing:-1px;line-height:1;" id="budget-total">$0.00</div>
+        <div style="padding-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;" id="budget-homes-label">0 homes</div>
+          <div style="font-size:13px;opacity:.8;" id="budget-rate-label">@ $0.50/flyer</div>
+        </div>
+      </div>
+      <div id="budget-bulk-note" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(255,255,255,.15);border-radius:9px;font-size:13px;">
+        🎉 <strong>Bulk rate applied!</strong> You're saving <span id="budget-savings">$0</span> vs. standard pricing.
+      </div>
+      <div id="budget-upgrade-note" style="margin-top:12px;padding:10px 14px;background:rgba(255,255,255,.15);border-radius:9px;font-size:13px;">
+        💡 Add <span id="budget-to-bulk">—</span> more homes to unlock the <strong>$0.40/flyer bulk rate</strong> and save more.
+      </div>
+    </div>
+    <div class="field-error" id="err-budget" style="margin-bottom:14px;display:none;"></div>
+
+    <div class="field-row single" style="margin-bottom:8px;">
+      <div class="field"><label>How did you hear about us?</label></div>
+    </div>
+    <div class="ref-grid" id="ref-grid" style="margin-bottom:20px;">
+      <div class="ref-chip" onclick="selectTile(this,'referral','Google Search')">🔍 Google Search</div>
+      <div class="ref-chip" onclick="selectTile(this,'referral','Word of Mouth')">🗣 Word of Mouth</div>
+      <div class="ref-chip" onclick="selectTile(this,'referral','Social Media')">📱 Social Media</div>
+      <div class="ref-chip" onclick="selectTile(this,'referral','Door Hanger')">🚪 Door Hanger</div>
+      <div class="ref-chip" onclick="selectTile(this,'referral','Existing Customer')">⭐ Past Customer</div>
+      <div class="ref-chip" onclick="selectTile(this,'referral','Other')">💬 Other</div>
+    </div>
+
+    <div class="field-row single">
+      <div class="field">
+        <label>Anything else we should know?</label>
+        <textarea id="f-other" placeholder="Timeline urgency, repeat campaign, specific goals…" style="min-height:70px;"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="prevStep(4)">← Back</button>
+      <button class="btn-next" id="submit-btn" onclick="submitForm()">🚀 Submit Campaign Request</button>
+    </div>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--muted);">By submitting you agree to be contacted by FrontPorch Marketing. No payment required now.</div>
+  </div>
+
+  <!-- ── SUCCESS ── -->
+  <div class="success-card" id="card-success">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">You're All Set!</div>
+    <div class="success-sub">We've received your campaign request and will reach out within one business day to confirm details and get you started.</div>
+    <div class="success-token-box" id="success-token-box" style="display:none;">
+      <div class="success-token-label">Your Campaign Portal Link</div>
+      <div class="success-token-val" id="success-portal-url">—</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <a class="portal-link-btn" id="success-portal-btn" href="#" style="display:none;">View Your Campaign Portal →</a>
+    </div>
+    <div style="font-size:13px;color:var(--muted);">We sent a confirmation to <strong id="success-email"></strong></div>
+  </div>
+
+</div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3000' : `${location.protocol}//${location.host}`;
+
+let currentStep = 1;
+const tileSelections = { 'flyer-type': null, 'budget': null, 'referral': null };
+
+// ── TILE SELECTION ────────────────────────────────────────────────────────────
+
+function selectTile(el, group, value) {
+  const container = el.parentElement;
+  container.querySelectorAll('.tile,.budget-tile,.ref-chip').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  tileSelections[group] = value;
+  const errMap = { 'flyer-type':'err-flyer-type', 'budget':'err-budget' };
+  if (errMap[group]) document.getElementById(errMap[group]).style.display = 'none';
+}
+
+// ── STEP NAVIGATION ───────────────────────────────────────────────────────────
+
+function nextStep(from) {
+  if (!validateStep(from)) return;
+  showStep(from + 1);
+}
+
+function prevStep(from) {
+  showStep(from - 1);
+}
+
+function showStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.form-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-'+n).classList.add('active');
+
+  // Update step indicators
+  for (let i = 1; i <= 4; i++) {
+    const ind = document.getElementById('step-ind-'+i);
+    ind.classList.remove('active','done');
+    if (i < n) ind.classList.add('done');
+    else if (i === n) ind.classList.add('active');
+    if (i < 4) {
+      const div = document.getElementById('div-'+i);
+      div.classList.toggle('done', i < n);
+    }
+  }
+  // Update step num icons for done steps
+  for (let i = 1; i < n; i++) {
+    document.getElementById('step-ind-'+i).querySelector('.step-num').textContent = '✓';
+  }
+
+  // Progress bar
+  document.getElementById('progress-fill').style.width = (n / 4 * 100) + '%';
+
+  // Init map when step 2 becomes visible
+  if (n === 2) setTimeout(() => { initIntakeMap(); if (intakeMap) intakeMap.invalidateSize(); }, 150);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── VALIDATION ────────────────────────────────────────────────────────────────
+
+function validateStep(step) {
+  let ok = true;
+
+  const req = (id, errId) => {
+    const val = document.getElementById(id).value.trim();
+    const err = document.getElementById(errId);
+    if (!val) { err.style.display = 'block'; ok = false; } else { err.style.display = 'none'; }
+    return val;
+  };
+
+  if (step === 1) {
+    req('f-first','err-first');
+    req('f-last','err-last');
+    req('f-biz','err-biz');
+    req('f-phone','err-phone');
+    const email = req('f-email','err-email');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('err-email').style.display = 'block'; ok = false;
+    }
+  }
+  if (step === 2) {
+    req('f-campaign','err-campaign');
+    req('f-location','err-location');
+    const homes = document.getElementById('f-homes').value;
+    if (!homes || parseInt(homes) < 250) {
+      document.getElementById('err-homes').textContent = 'Minimum order is 250 homes.';
+      document.getElementById('err-homes').style.display = 'block'; ok = false;
+    } else { document.getElementById('err-homes').style.display = 'none'; }
+    // Zone validation
+    if (drawnZones.length === 0 && !pendingGeoJSON) {
+      document.getElementById('err-zone').style.display = 'block'; ok = false;
+    } else {
+      if (pendingGeoJSON) confirmPendingZone(); // auto-confirm if they forgot
+      document.getElementById('err-zone').style.display = 'none';
+    }
+  }
+  if (step === 3) {
+    if (!tileSelections['flyer-type']) {
+      document.getElementById('err-flyer-type').style.display = 'block'; ok = false;
+    }
+  }
+  if (step === 4) {
+    if (!tileSelections['budget']) {
+      document.getElementById('err-budget').style.display = 'block'; ok = false;
+    }
+  }
+
+  return ok;
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+
+async function submitForm() {
+  if (!validateStep(4)) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Submitting…';
+  btn.disabled = true;
+
+  const payload = {
+    first_name:     document.getElementById('f-first').value.trim(),
+    last_name:      document.getElementById('f-last').value.trim(),
+    business_name:  document.getElementById('f-biz').value.trim(),
+    phone:          document.getElementById('f-phone').value.trim(),
+    email:          document.getElementById('f-email').value.trim(),
+    campaign_name:  document.getElementById('f-campaign').value.trim(),
+    location:       document.getElementById('f-location').value.trim(),
+    target_homes:   parseInt(document.getElementById('f-homes').value) || 0,
+    start_date:     document.getElementById('f-startdate').value || null,
+    instructions:   document.getElementById('f-instructions').value.trim(),
+    zones:          drawnZones.map((z,i) => ({ name: z.name||`Zone ${i+1}`, geojson: z.geojson })),
+    flyer_type:     tileSelections['flyer-type'],
+    artwork_ready:  document.getElementById('f-artwork').value,
+    printing:       document.getElementById('f-printing').value,
+    flyer_notes:    document.getElementById('f-flyer-notes').value.trim(),
+    budget:         fmt(calcPrice(parseInt(document.getElementById('f-homes').value)||0).total),
+    rate_per_flyer: calcPrice(parseInt(document.getElementById('f-homes').value)||0).rate,
+    referral:       tileSelections['referral'],
+    other_notes:    document.getElementById('f-other').value.trim(),
+  };
+
+  const showSuccess = (portalUrl) => {
+    document.querySelectorAll('.form-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('card-success').classList.add('active');
+    document.getElementById('success-email').textContent = payload.email;
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('steps-bar').style.display = 'none';
+    if (portalUrl) {
+      document.getElementById('success-token-box').style.display = 'block';
+      document.getElementById('success-portal-url').textContent = portalUrl;
+      const portalBtn = document.getElementById('success-portal-btn');
+      portalBtn.href = portalUrl;
+      portalBtn.style.display = 'inline-block';
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  try {
+    const res = await fetch(`${API}/api/intake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Submission failed');
+    showSuccess(data.portal_url);
+  } catch(e) {
+    // If server unreachable (e.g. file opened directly), still show success
+    // In production the server will always be running
+    if (e instanceof TypeError && e.message.includes('fetch')) {
+      showSuccess(null);
+    } else {
+      btn.textContent = '🚀 Submit Campaign Request';
+      btn.disabled = false;
+      alert('Something went wrong: ' + e.message + '\n\nPlease try again or contact us directly.');
+    }
+  }
+}
+
+// ── PRICING CALCULATOR ────────────────────────────────────────────────────────
+
+// Pricing tiers
+const TIERS = [
+  { min: 5000, rate: 0.40, label: 'bulk rate 🎉' },
+  { min: 2500, rate: 0.45, label: 'mid-tier rate 🎉' },
+  { min:    0, rate: 0.50, label: 'standard rate' },
+];
+
+function calcPrice(homes) {
+  if (!homes || homes < 1) return { total:0, rate:0.50, savings:0, tier:TIERS[2], nextTier:TIERS[1] };
+  const tier     = TIERS.find(t => homes >= t.min);
+  const total    = homes * tier.rate;
+  const savings  = homes * (0.50 - tier.rate);
+  const nextTier = TIERS.find(t => t.min > (tier.min)) || null; // tier above current (higher min)
+  // "next tier" means the next threshold the customer hasn't hit yet
+  const nextUp   = TIERS.slice().reverse().find(t => t.min > homes) || null;
+  return { total, rate: tier.rate, savings, tier, nextUp };
+}
+
+function fmt(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+function updatePricing() {
+  const homes = parseInt(document.getElementById('f-homes').value) || 0;
+  const { total, rate, savings, tier, nextUp } = calcPrice(homes);
+
+  // Step 2 estimate box
+  const box = document.getElementById('price-estimate');
+  if (homes >= 250) {
+    box.style.display = 'block';
+    document.getElementById('est-total').textContent     = fmt(total);
+    document.getElementById('est-breakdown').textContent = `${homes.toLocaleString()} homes × ${fmt(rate)} each`;
+    document.getElementById('est-rate').textContent      = fmt(rate);
+    document.getElementById('est-rate-note').textContent = tier.label;
+    // Show max possible savings (if they jumped to $0.40)
+    const maxSavings = homes * (0.50 - 0.40);
+    document.getElementById('est-savings').textContent = fmt(maxSavings);
+  } else {
+    box.style.display = 'none';
+  }
+
+  // Step 4 budget summary
+  document.getElementById('budget-total').textContent       = fmt(total);
+  document.getElementById('budget-homes-label').textContent = `${homes.toLocaleString()} homes`;
+  document.getElementById('budget-rate-label').textContent  = `@ ${fmt(rate)}/flyer`;
+
+  const bulkNote    = document.getElementById('budget-bulk-note');
+  const upgradeNote = document.getElementById('budget-upgrade-note');
+  if (savings > 0) {
+    bulkNote.style.display = 'block';
+    document.getElementById('budget-savings').textContent = fmt(savings);
+  } else {
+    bulkNote.style.display = 'none';
+  }
+  if (nextUp) {
+    upgradeNote.style.display = 'block';
+    const needed = nextUp.min - homes;
+    document.getElementById('budget-to-bulk').textContent = needed.toLocaleString();
+    upgradeNote.innerHTML = `💡 Add <strong>${needed.toLocaleString()}</strong> more homes to unlock <strong>${fmt(nextUp.rate)}/flyer</strong> and save ${fmt(needed * (rate - nextUp.rate))} more.`;
+  } else {
+    upgradeNote.style.display = 'none';
+  }
+
+  // Auto-fill budget so validation passes
+  tileSelections['budget'] = homes > 0 ? fmt(total) : null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-homes').addEventListener('input', updatePricing);
+});
+
+// ── ZONE MAP — REBUILT ────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let intakeMap = null, mapReady = false, mapLoaded = false;
+let drawnZones   = [];   // [{ name, color, geojson, sqMiles }]
+let pendingGeoJSON = null; // boundary fetched but not yet confirmed
+let geocodeTimer = null, searchTimer = null, searchResults = [];
+let locationMarkerEl = null;
+let rectDrawing  = false, rectStart = null, rectEnd = null;
+const ZONE_COLORS = ['#C07830','#22c55e','#38bdf8','#a855f7','#f59e0b','#ef4444'];
+
+function emptyFC() { return { type:'FeatureCollection', features:[] }; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAP INIT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function initIntakeMap() {
+  if (mapReady) return;
+  mapReady = true;
+
+  intakeMap = new maplibregl.Map({
+    container: 'zone-map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [-97.697, 30.513],
+    zoom: 12,
+  });
+  intakeMap.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
+
+  intakeMap.on('load', () => {
+    mapLoaded = true;
+    // Pending zone layer
+    intakeMap.addSource('pending', { type:'geojson', data: emptyFC() });
+    intakeMap.addLayer({ id:'pending-fill', type:'fill', source:'pending', paint:{ 'fill-color':'#C07830', 'fill-opacity':0.2 } });
+    intakeMap.addLayer({ id:'pending-line', type:'line', source:'pending', paint:{ 'line-color':'#C07830', 'line-width':2.5, 'line-dasharray':[4,2] } });
+    if (drawnZones.length) refreshZonesLayer();
+  });
+
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH — auto-fetch OSM boundary
+// ─────────────────────────────────────────────────────────────────────────────
+
+function debounceSearch(val) {
+  clearTimeout(searchTimer);
+  closeDropdown();
+  if (val.length < 3) return;
+  searchTimer = setTimeout(() => runSearch(val), 450);
+}
+
+async function runSearch(q) {
+  q = q || document.getElementById('map-search').value.trim();
+  if (!q || q.length < 3) return;
+  showDropdownMsg('🔍 Searching…');
+  try {
+    // Request polygon_geojson so we get actual boundaries
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&polygon_geojson=1`;
+    const res = await fetch(url, { headers:{ 'Accept-Language':'en' } });
+    searchResults = await res.json();
+    if (!searchResults.length) { showDropdownMsg('No results found. Try a different name or use Draw Area.'); return; }
+    showDropdown(searchResults);
+  } catch { showDropdownMsg('⚠️ Search unavailable. Use Draw Area instead.'); }
+}
+
+function showDropdown(results) {
+  const dd = document.getElementById('search-dropdown');
+  dd.innerHTML = results.map((r,i) => {
+    const name = r.display_name.split(',').slice(0,3).join(', ');
+    const hasBoundary = r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon');
+    return `<div onclick="selectResult(${i})"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:13px;"
+      onmouseover="this.style.background='#fdf6ee'" onmouseout="this.style.background=''">
+      <div style="font-weight:600;">${name}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${hasBoundary ? '✅ Boundary available' : '📍 Point only'} · ${r.type||r.class||''}</div>
+    </div>`;
+  }).join('');
+  dd.style.display = 'block';
+}
+
+function showDropdownMsg(msg) {
+  const dd = document.getElementById('search-dropdown');
+  dd.innerHTML = `<div style="padding:11px 14px;font-size:13px;color:var(--muted);">${msg}</div>`;
+  dd.style.display = 'block';
+}
+
+function closeDropdown() { document.getElementById('search-dropdown').style.display = 'none'; }
+document.addEventListener('click', e => { if (!e.target.closest('#map-search') && !e.target.closest('#search-dropdown')) closeDropdown(); });
+
+function selectResult(i) {
+  const r = searchResults[i];
+  if (!r) return;
+  closeDropdown();
+  if (!intakeMap) initIntakeMap();
+
+  const name = r.display_name.split(',').slice(0,2).join(', ');
+  document.getElementById('map-search').value = name;
+  if (!document.getElementById('f-location').value) document.getElementById('f-location').value = name;
+
+  const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+  const hasBoundary = r.geojson && (r.geojson.type==='Polygon'||r.geojson.type==='MultiPolygon');
+
+  if (hasBoundary) {
+    // Show boundary as pending zone + offer to add
+    pendingGeoJSON = { name, geojson: r.geojson };
+    showPendingZone(r.geojson);
+    // Fit map to boundary
+    if (r.boundingbox) {
+      const bb = r.boundingbox.map(parseFloat);
+      intakeMap.fitBounds([[bb[2],bb[0]],[bb[3],bb[1]]], { padding:40 });
+    }
+    // Show confirm bar
+    document.getElementById('zone-tip').style.display = 'none';
+    document.getElementById('pending-bar').style.display = 'flex';
+    document.getElementById('pending-name').textContent = name;
+  } else {
+    // Just fly to the point
+    intakeMap.flyTo({ center:[lon, lat], zoom:14 });
+    document.getElementById('zone-tip').innerHTML = `📍 Showing <strong>${name}</strong>. Use <strong>Draw Area</strong> to outline the specific streets you want covered.`;
+    document.getElementById('zone-tip').style.display = 'block';
+  }
+}
+
+function showPendingZone(geojson) {
+  if (!mapLoaded) { setTimeout(() => showPendingZone(geojson), 300); return; }
+  intakeMap.getSource('pending').setData({ type:'FeatureCollection', features:[{ type:'Feature', geometry: geojson }] });
+}
+
+function clearPending() {
+  pendingGeoJSON = null;
+  if (mapLoaded && intakeMap.getSource('pending')) intakeMap.getSource('pending').setData(emptyFC());
+  document.getElementById('pending-bar').style.display = 'none';
+  document.getElementById('zone-tip').style.display = 'block';
+}
+
+function confirmPendingZone() {
+  if (!pendingGeoJSON) return;
+  const color = ZONE_COLORS[drawnZones.length % ZONE_COLORS.length];
+  // Calculate area from bounding box approximation
+  const coords = pendingGeoJSON.geojson.type === 'Polygon'
+    ? pendingGeoJSON.geojson.coordinates[0]
+    : pendingGeoJSON.geojson.coordinates[0][0];
+  const sqMiles = geoJSONAreaSqMiles(pendingGeoJSON.geojson);
+  drawnZones.push({ name: pendingGeoJSON.name, color, geojson: pendingGeoJSON.geojson, sqMiles });
+  refreshZonesLayer(); // draw confirmed zone FIRST so there's no gap
+  clearPending();      // then remove the dashed preview
+  updateHomeEstimate();
+  onZoneAdded();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOM POLYGON DRAWING — MapboxDraw
+// ─────────────────────────────────────────────────────────────────────────────
+
+let drawControl = null;
+
+function initDraw() {
+  if (drawControl) return;
+  drawControl = new MapboxDraw({
+    displayControlsDefault: false,
+    defaultMode: 'simple_select',
+    styles: [
+      { id:'gl-draw-polygon-fill', type:'fill', filter:['all',['==','$type','Polygon'],['!=','mode','static']],
+        paint:{ 'fill-color':'#C07830', 'fill-opacity':0.25 } },
+      { id:'gl-draw-polygon-stroke', type:'line', filter:['all',['==','$type','Polygon'],['!=','mode','static']],
+        paint:{ 'line-color':'#C07830', 'line-width':2.5 } },
+      { id:'gl-draw-polygon-midpoint', type:'circle', filter:['all',['==','$type','Point'],['==','meta','midpoint']],
+        paint:{ 'circle-radius':4, 'circle-color':'#C07830' } },
+      { id:'gl-draw-polygon-vertex', type:'circle', filter:['all',['==','$type','Point'],['==','meta','vertex']],
+        paint:{ 'circle-radius':6, 'circle-color':'#fff', 'circle-stroke-color':'#C07830', 'circle-stroke-width':2 } },
+    ]
+  });
+  intakeMap.addControl(drawControl);
+
+  intakeMap.on('draw.create', onDrawCreate);
+  intakeMap.on('draw.update', onDrawCreate);
+}
+
+function startDraw() {
+  if (!intakeMap) initIntakeMap();
+  if (!mapLoaded) { setTimeout(startDraw, 300); return; }
+  initDraw();
+  drawControl.changeMode('draw_polygon');
+  document.getElementById('zone-tip').innerHTML = '🖱 Click on the map to place points around your zone. <strong>Double-click</strong> or click the first point to finish.';
+  document.getElementById('zone-tip').style.display = 'block';
+  document.getElementById('pending-bar').style.display = 'none';
+  document.getElementById('rect-btn').textContent = '✕ Cancel Drawing';
+  document.getElementById('rect-btn').className = 'map-btn clear';
+  document.getElementById('rect-btn').onclick = cancelDraw;
+}
+
+function cancelDraw() {
+  if (drawControl) { drawControl.deleteAll(); drawControl.changeMode('simple_select'); }
+  resetDrawBtn();
+  document.getElementById('zone-tip').innerHTML = '🔍 Search for your neighborhood above — we\'ll highlight the boundary automatically. Or click <strong>Draw Custom Zone</strong> to trace your area on the map.';
+  document.getElementById('zone-tip').style.display = 'block';
+}
+
+function resetDrawBtn() {
+  document.getElementById('rect-btn').textContent = '✏️ Draw Custom Zone';
+  document.getElementById('rect-btn').className = 'map-btn draw-off';
+  document.getElementById('rect-btn').onclick = startDraw;
+}
+
+function onDrawCreate(e) {
+  const feature = e.features && e.features[0];
+  if (!feature || feature.geometry.type !== 'Polygon') return;
+  resetDrawBtn();
+  drawControl.deleteAll();
+  drawControl.changeMode('simple_select');
+  // Show as pending
+  pendingGeoJSON = { name:'Custom Zone', geojson: feature.geometry };
+  if (intakeMap.getSource('pending')) {
+    intakeMap.getSource('pending').setData({ type:'FeatureCollection', features:[{ type:'Feature', geometry: feature.geometry }] });
+  }
+  document.getElementById('zone-tip').style.display = 'none';
+  document.getElementById('pending-bar').style.display = 'flex';
+  document.getElementById('pending-name').textContent = 'Custom Zone';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONE LIST & MAP LAYER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function refreshZonesLayer() {
+  if (!mapLoaded) { setTimeout(refreshZonesLayer, 300); return; }
+  // Remove all old zone layers/sources
+  removeAllZoneLayers();
+  // Add one source+layer per confirmed zone
+  drawnZones.forEach((z, i) => {
+    const sid = `zone-src-${i}`;
+    const fillId = `zone-fill-${i}`;
+    const lineId = `zone-line-${i}`;
+    try {
+      intakeMap.addSource(sid, { type:'geojson', data:{ type:'Feature', geometry: z.geojson } });
+      intakeMap.addLayer({ id: fillId, type:'fill', source: sid,
+        paint:{ 'fill-color': z.color, 'fill-opacity': 0.35 } });
+      intakeMap.addLayer({ id: lineId, type:'line', source: sid,
+        paint:{ 'line-color': z.color, 'line-width': 3 } });
+    } catch(e) {}
+  });
+}
+
+function removeAllZoneLayers() {
+  // Remove up to 20 possible zone layers
+  for (let i = 0; i < 20; i++) {
+    try { if (intakeMap.getLayer(`zone-fill-${i}`)) intakeMap.removeLayer(`zone-fill-${i}`); } catch {}
+    try { if (intakeMap.getLayer(`zone-line-${i}`)) intakeMap.removeLayer(`zone-line-${i}`); } catch {}
+    try { if (intakeMap.getSource(`zone-src-${i}`)) intakeMap.removeSource(`zone-src-${i}`); } catch {}
+  }
+}
+
+function onZoneAdded() {
+  const count = drawnZones.length;
+  document.getElementById('zone-count-badge').textContent = `${count} zone${count!==1?'s':''}`;
+  document.getElementById('zone-count-badge').style.display = 'inline';
+  document.getElementById('zone-ok').innerHTML = `✅ ${count} zone${count!==1?'s':''} added! Add more or continue below.`;
+  document.getElementById('zone-ok').style.display = 'block';
+  document.getElementById('zone-tip').style.display = 'none';
+  document.getElementById('err-zone').style.display = 'none';
+  document.getElementById('map-search').value = '';
+  renderZoneList();
+}
+
+function renderZoneList() {
+  const el = document.getElementById('drawn-zones-list');
+  if (!drawnZones.length) { el.innerHTML = ''; return; }
+  el.innerHTML = drawnZones.map((z,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fafafa;border:1px solid var(--border);border-radius:10px;">
+      <div style="width:12px;height:12px;border-radius:50%;background:${z.color};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${z.name||'Zone '+(i+1)}</div>
+        <div style="font-size:11px;color:var(--muted);">${z.sqMiles ? z.sqMiles.toFixed(2)+' sq mi' : ''}</div>
+      </div>
+      <button type="button" onclick="deleteZone(${i})" style="background:var(--red-bg);color:var(--red-text);border:none;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">🗑 Remove</button>
+    </div>`).join('');
+}
+
+function deleteZone(idx) {
+  drawnZones.splice(idx, 1);
+  refreshZonesLayer();
+  renderZoneList();
+  if (!drawnZones.length) {
+    document.getElementById('zone-count-badge').style.display = 'none';
+    document.getElementById('zone-ok').style.display = 'none';
+    document.getElementById('zone-tip').style.display = 'block';
+    document.getElementById('zone-tip').innerHTML = '🔍 Search for your neighborhood above — we\'ll highlight the boundary automatically. Or click <strong>Draw Area</strong> to drag a box.';
+    if (mapLoaded) removeAllZoneLayers();
+    const note = document.getElementById('homes-estimate-note'); if (note) note.remove();
+  } else {
+    document.getElementById('zone-count-badge').textContent = `${drawnZones.length} zone${drawnZones.length!==1?'s':''}`;
+    updateHomeEstimate();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MY LOCATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+function locateMe() {
+  if (!navigator.geolocation) { alert('Geolocation not supported by your browser.'); return; }
+  const btns = document.querySelectorAll('.map-btn');
+  btns.forEach(b=>b.disabled=true);
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude:lat, longitude:lng } = pos.coords;
+    if (!intakeMap) initIntakeMap();
+    intakeMap.flyTo({ center:[lng,lat], zoom:14 });
+    if (locationMarkerEl) locationMarkerEl.remove();
+    const el = document.createElement('div');
+    el.style.cssText = 'width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+    locationMarkerEl = new maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(intakeMap);
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=14`);
+      const d = await r.json();
+      if (d.address) {
+        const q = [d.address.suburb||d.address.neighbourhood||d.address.quarter||d.address.village, d.address.city||d.address.town, d.address.state].filter(Boolean).join(', ');
+        document.getElementById('map-search').value = q;
+        if (!document.getElementById('f-location').value) document.getElementById('f-location').value = q;
+        // Auto-trigger search to load boundary
+        await runSearch(q);
+      }
+    } catch {}
+    btns.forEach(b=>b.disabled=false);
+  }, () => { btns.forEach(b=>b.disabled=false); alert('Could not get your location. Try searching manually.'); }, { timeout:10000 });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME ESTIMATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DENSITY_OPTIONS = [
+  { label:'Dense Urban', value:1400 },
+  { label:'Suburban',    value:600  },
+  { label:'Sparse/Rural',value:250  },
+];
+let selectedDensity = 600;
+
+function geoJSONAreaSqMiles(geojson) {
+  // Shoelace on first ring of polygon
+  const rings = geojson.type === 'Polygon' ? [geojson.coordinates[0]]
+    : geojson.coordinates.map(p=>p[0]);
+  const R = 111139;
+  let total = 0;
+  rings.forEach(pts => {
+    const avgLat = pts.reduce((s,p)=>s+p[1],0)/pts.length;
+    const cos = Math.cos(avgLat*Math.PI/180);
+    let a = 0;
+    for (let i=0;i<pts.length;i++){const j=(i+1)%pts.length;a+=pts[i][0]*R*cos*pts[j][1]*R-pts[j][0]*R*cos*pts[i][1]*R;}
+    total += Math.abs(a)/2;
+  });
+  return total/2589988.11;
+}
+
+function updateHomeEstimate() {
+  const totalSqMiles = drawnZones.reduce((s,z)=>s+(z.sqMiles||0),0);
+  if (!totalSqMiles) return;
+  const safe = Math.max(250, Math.round(totalSqMiles*selectedDensity/10)*10);
+  const el = document.getElementById('f-homes');
+  el.value = safe;
+  el.dispatchEvent(new Event('input'));
+  let note = document.getElementById('homes-estimate-note');
+  if (!note) {
+    note = document.createElement('div');
+    note.id = 'homes-estimate-note';
+    note.style.cssText = 'font-size:12px;margin-top:6px;padding:8px 12px;background:#fdf6ee;border-radius:8px;border:1px solid #f5c97a;color:#92400e;';
+    el.parentNode.appendChild(note);
+  }
+  const dl = DENSITY_OPTIONS.find(d=>d.value===selectedDensity)?.label||'Suburban';
+  note.innerHTML = `📐 <strong>~${safe.toLocaleString()} homes estimated</strong> (${totalSqMiles.toFixed(2)} sq mi @ ${dl})
+    &nbsp;·&nbsp; Adjust: ${DENSITY_OPTIONS.map(d=>`<span onclick="setDensity(${d.value})" style="cursor:pointer;font-weight:700;text-decoration:underline;margin:0 4px;color:${d.value===selectedDensity?'var(--accent)':'#92400e'};">${d.label}</span>`).join('')}
+    <span style="color:var(--muted);"> · or edit manually above</span>`;
+}
+
+function setDensity(v) { selectedDensity=v; updateHomeEstimate(); }
+
+// geocode from location text field
+function debounceGeocode(val) {
+  clearTimeout(geocodeTimer);
+  if (val.length < 5) return;
+  geocodeTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=1`);
+      const d = await r.json();
+      if (d[0] && intakeMap) intakeMap.flyTo({ center:[parseFloat(d[0].lon),parseFloat(d[0].lat)], zoom:13 });
+    } catch {}
+  }, 900);
+}
+
+// ── PRE-FILL (for pre-sent links e.g. ?email=...&biz=...) ────────────────────
+
+// Style for zone labels on map
+const style = document.createElement('style');
+style.textContent = '.zone-label { background:transparent; border:none; box-shadow:none; font-weight:800; font-size:13px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.5); }';
+document.head.appendChild(style);
+
+const params = new URLSearchParams(location.search);
+if (params.get('email')) document.getElementById('f-email').value = params.get('email');
+if (params.get('name'))  document.getElementById('f-first').value = params.get('name');
+if (params.get('biz'))   document.getElementById('f-biz').value   = params.get('biz');
+if (params.get('phone')) document.getElementById('f-phone').value = params.get('phone');
+</script>
+
+</body>
+</html>

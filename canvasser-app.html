@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>FrontPorch Marketing</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    :root {
+      --bg: #f7f8fa; --white: #fff; --border: #e5e7eb;
+      --accent: #C07830; --accent-dark: #A06020;
+      --brand-dark: #2A2215; --brand-cream: #F5F0E8;
+      --green: #22c55e; --green-bg: #dcfce7; --green-text: #15803d;
+      --yellow: #f59e0b; --yellow-bg: #fef3c7; --yellow-text: #92400e;
+      --red: #ef4444; --red-bg: #fee2e2; --red-text: #991b1b;
+      --gray: #f3f4f6; --text: #111827; --text2: #374151; --muted: #6b7280;
+      --font: 'Inter', system-ui, sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html, body { height:100%; background:var(--bg); font-family:var(--font); color:var(--text); overflow:hidden; }
+
+    /* SCREENS */
+    .screen { position:fixed; inset:0; display:none; flex-direction:column; background:var(--bg); overflow:hidden; }
+    .screen.active { display:flex; }
+
+    /* LOGIN */
+    #screen-login { background:linear-gradient(160deg,#C07830 0%,#8B5520 50%,#5C3810 100%); align-items:center; justify-content:center; padding:32px 24px; }
+    .login-logo { font-size:32px; font-weight:900; color:#fff; letter-spacing:-1px; margin-bottom:6px; }
+    .login-logo span { opacity:0.7; }
+    .login-sub { font-size:14px; color:rgba(255,255,255,0.7); margin-bottom:40px; }
+    .login-card { background:#fff; border-radius:20px; padding:28px 24px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .login-card h2 { font-size:20px; font-weight:800; margin-bottom:4px; }
+    .login-card p { font-size:13px; color:var(--muted); margin-bottom:24px; }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:13px; font-weight:600; color:var(--text2); margin-bottom:6px; }
+    .field input { width:100%; border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-size:15px; font-family:var(--font); outline:none; background:var(--gray); transition:border-color 0.15s; }
+    .field input:focus { border-color:var(--accent); background:#fff; }
+    .pin-input { text-align:center; font-size:20px; font-weight:700; letter-spacing:2px; }
+    .login-btn { width:100%; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:8px; }
+    .login-btn:active { background:var(--accent-dark); }
+    .login-error { color:var(--red); font-size:13px; text-align:center; margin-top:10px; display:none; }
+
+    /* OFFLINE BANNER */
+    #offline-banner { position:fixed; top:0; left:0; right:0; z-index:9999; background:#1e293b; color:#fff; font-size:13px; font-weight:600; text-align:center; padding:8px 16px; display:none; align-items:center; justify-content:center; gap:8px; }
+    #offline-banner.show { display:flex; }
+    #offline-banner .sync-badge { background:#f59e0b; color:#1e293b; border-radius:20px; padding:2px 8px; font-size:11px; font-weight:800; }
+
+    /* TOP BAR */
+    .topbar { padding:calc(var(--safe-top) + 12px) 20px 12px; background:var(--white); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .topbar-name { font-size:16px; font-weight:700; }
+    .topbar-sub { font-size:12px; color:var(--muted); }
+    .shift-btn { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
+    .shift-btn.start { background:var(--green-bg); color:var(--green-text); }
+    .shift-btn.end { background:var(--red-bg); color:var(--red-text); }
+
+    /* TOP TABS NAV */
+    .bottom-nav { background:var(--white); border-bottom:1px solid var(--border); display:flex; padding:0 8px; flex-shrink:0; overflow-x:auto; }
+    .bottom-nav::-webkit-scrollbar { display:none; }
+    .nav-btn { flex:1; display:flex; flex-direction:row; align-items:center; justify-content:center; padding:13px 12px; cursor:pointer; color:var(--muted); font-size:13px; font-weight:600; gap:6px; position:relative; border-bottom:3px solid transparent; white-space:nowrap; min-width:0; }
+    .nav-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .nav-btn svg { width:17px; height:17px; flex-shrink:0; }
+    .nav-badge-dot { background:var(--red); color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:20px; margin-left:2px; }
+
+    /* SCROLL BODY */
+    .scroll-body { flex:1; overflow-y:auto; padding:20px 16px; -webkit-overflow-scrolling:touch; }
+    .scroll-body::-webkit-scrollbar { display:none; }
+
+    /* HOME TAB */
+    .stats-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+    .stat-card { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:16px; }
+    .stat-label { font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600; }
+    .stat-value { font-size:28px; font-weight:900; margin-top:4px; }
+    .stat-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+    .section-title { font-size:14px; font-weight:700; color:var(--text2); margin-bottom:12px; }
+    .acc-card { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:20px; }
+    .acc-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .acc-title { font-size:14px; font-weight:700; }
+    .acc-score { font-size:22px; font-weight:900; }
+    .acc-track { height:10px; background:var(--gray); border-radius:5px; overflow:hidden; }
+    .acc-fill { height:100%; border-radius:5px; transition:width 0.5s ease; }
+    .acc-tips { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6; }
+    .home-item { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; }
+
+    /* ZONES TAB */
+    .zone-card { background:var(--white); border:2px solid var(--border); border-radius:16px; padding:16px; margin-bottom:12px; cursor:pointer; transition:all 0.15s; }
+    .zone-card:active { transform:scale(0.98); }
+    .zone-card.my-zone { border-color:var(--green); background:var(--green-bg); }
+    .zone-card-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .zone-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+    .zone-name { font-size:15px; font-weight:700; }
+    .zone-canvass { font-size:12px; color:var(--muted); }
+    .zone-stats { display:flex; gap:14px; font-size:13px; color:var(--muted); }
+    .zone-stats strong { color:var(--text); }
+    .zone-action-row { display:flex; gap:8px; margin-top:12px; }
+    .zone-btn { flex:1; padding:10px; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; }
+    .zone-btn.claim { background:var(--accent); color:#fff; }
+    .zone-btn.claim:active { background:var(--accent-dark); }
+    .zone-btn.release { background:var(--red-bg); color:var(--red-text); }
+    .zone-btn.go-map { background:var(--green-bg); color:var(--green-text); }
+
+    /* MAP TAB */
+    #zone-map { flex:1; min-height:0; }
+    .map-zone-header { padding:10px 16px; background:var(--white); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    .map-zone-badge { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .map-counter { margin-left:auto; background:var(--green-bg); color:var(--green-text); font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; }
+    .map-no-zone { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:40px 32px; text-align:center; }
+    .flyer-prompt { position:absolute; bottom:20px; left:12px; right:12px; background:#fff; border-radius:20px; box-shadow:0 8px 32px rgba(0,0,0,0.22); padding:18px; z-index:1000; }
+    .flyer-prompt-title { font-size:16px; font-weight:800; margin-bottom:4px; }
+    .flyer-prompt-sub { font-size:13px; color:var(--muted); margin-bottom:14px; }
+    .flyer-preview { width:100%; height:140px; object-fit:cover; border-radius:12px; margin-bottom:12px; display:none; }
+    .flyer-cam-btn { width:100%; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .flyer-cam-btn:active { background:var(--accent-dark); }
+    .flyer-confirm-btn { width:100%; padding:14px; background:var(--green); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; display:none; }
+    .flyer-cancel-btn { width:100%; padding:10px; background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer; margin-top:4px; }
+
+    /* CAMERA OVERLAY */
+    #camera-overlay { position:fixed; inset:0; background:#000; z-index:9000; display:none; flex-direction:column; }
+    #camera-overlay.show { display:flex; }
+    #camera-video { flex:1; width:100%; object-fit:cover; }
+    #camera-controls { padding:24px 24px calc(24px + var(--safe-bottom)); display:flex; align-items:center; justify-content:center; gap:32px; background:#000; }
+    #camera-shutter { width:72px; height:72px; border-radius:50%; border:4px solid #fff; background:rgba(255,255,255,0.15); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    #camera-shutter:active { background:rgba(255,255,255,0.4); }
+    #camera-shutter-inner { width:54px; height:54px; border-radius:50%; background:#fff; }
+    #camera-close { position:absolute; top:calc(20px + var(--safe-top)); left:20px; background:rgba(0,0,0,0.5); border:none; color:#fff; font-size:22px; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    #camera-canvas { display:none; }
+
+    /* MESSAGES TAB */
+    .msg-thread { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .chat-msgs { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch; }
+    .bubble { max-width:80%; padding:10px 14px; border-radius:14px; font-size:14px; line-height:1.5; }
+    .bubble.them { background:var(--gray); border-radius:14px 14px 14px 4px; color:var(--text); }
+    .bubble.me { background:var(--accent); color:#fff; border-radius:14px 14px 4px 14px; margin-left:auto; }
+    .bubble-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+    .bubble-meta.me { text-align:right; }
+    .chat-input-row { padding:12px 16px; border-top:1px solid var(--border); background:var(--white); display:flex; gap:8px; padding-bottom:calc(12px + var(--safe-bottom)); flex-shrink:0; }
+    .chat-input { flex:1; border:1px solid var(--border); border-radius:22px; padding:10px 16px; font-size:14px; font-family:var(--font); outline:none; background:var(--gray); }
+    .send-btn { width:40px; height:40px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:24px; left:16px; right:16px; background:#111; color:#fff; padding:14px 20px; border-radius:16px; font-size:14px; font-weight:600; z-index:9999; display:none; text-align:center; line-height:1.5; }
+
+    @keyframes ping { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(1.4)} }
+    @keyframes gps-pulse { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(3);opacity:0} }
+    .gps-dot { width:10px; height:10px; border-radius:50%; background:var(--green); animation:ping 2s infinite; display:inline-block; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="screen active" id="screen-login">
+  <div class="login-logo">Front<span>Porch</span></div>
+  <div class="login-sub">FrontPorch Marketing</div>
+  <div class="login-card">
+    <h2>Sign In</h2>
+    <p>Enter your name and PIN to get started</p>
+    <div class="field">
+      <label>First Name</label>
+      <input type="text" id="login-name" placeholder="e.g. Marcus" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>PIN</label>
+      <input type="password" id="login-pin" class="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" />
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-error" id="login-error">Invalid name or PIN. Try again.</div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+      <button onclick="demoLogin()" style="background:none;border:none;color:#6b7280;font-size:13px;cursor:pointer;text-decoration:underline;">Preview as demo Porch Pro</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="screen" id="screen-app">
+
+  <!-- Top Bar -->
+  <div class="topbar" style="position:sticky;top:0;z-index:190;">
+    <div>
+      <div class="topbar-name" id="app-name">Loading…</div>
+      <div class="topbar-sub" id="app-sub">FrontPorch Marketing</div>
+    </div>
+    <button class="shift-btn start" id="shift-btn" onclick="toggleShift()">Start Shift</button>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="bottom-nav" style="position:sticky;top:62px;z-index:180;">
+    <div class="nav-btn active" id="nav-home" onclick="switchTab('home',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Home
+    </div>
+    <div class="nav-btn" id="nav-zones" onclick="switchTab('zones',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Zones
+    </div>
+    <div class="nav-btn" id="nav-map" onclick="switchTab('map',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+      Map
+    </div>
+    <div class="nav-btn" id="nav-messages" onclick="switchTab('messages',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      Messages <span class="nav-badge-dot" id="msg-badge" style="display:none;"></span>
+    </div>
+    <div class="nav-btn" id="nav-earnings" onclick="switchTab('earnings',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Earnings
+    </div>
+  </div>
+
+  <!-- HOME TAB -->
+  <div class="screen active" id="tab-home" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="scroll-body">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Homes Today</div>
+          <div class="stat-value" style="color:var(--green)" id="h-homes">0</div>
+          <div class="stat-sub" id="h-hph">— homes/hr</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Est. Earnings</div>
+          <div class="stat-value" style="color:var(--accent);font-size:22px;" id="h-earn">$0.00</div>
+          <div class="stat-sub" id="h-rate-label">$0.10/home</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Shift Time</div>
+          <div class="stat-value" style="color:var(--text2);font-size:22px;" id="h-time">—</div>
+          <div class="stat-sub" id="h-status">Not started</div>
+        </div>
+        <div class="stat-card" id="h-zone-card" onclick="switchTab('zones',document.getElementById('nav-zones'))" style="cursor:pointer;">
+          <div class="stat-label">My Zone</div>
+          <div class="stat-value" style="color:var(--text2);font-size:16px;line-height:1.2;" id="h-zone-name">None</div>
+          <div class="stat-sub" id="h-zone-sub">Tap to pick a zone</div>
+        </div>
+      </div>
+
+      <div class="section-title">My Schedule</div>
+      <div id="h-schedule" style="margin-bottom:20px;"></div>
+
+      <div class="section-title">Today's Activity</div>
+      <div id="h-recent"></div>
+    </div>
+  </div>
+
+  <!-- ZONES TAB -->
+  <div class="screen" id="tab-zones" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="scroll-body">
+      <div id="my-zone-section" style="display:none;margin-bottom:20px;">
+        <div class="section-title">My Current Zone</div>
+        <div id="my-zone-card"></div>
+      </div>
+      <div>
+        <div class="section-title" id="avail-title">Available Zones</div>
+        <div id="zones-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP TAB -->
+  <div class="screen" id="tab-map" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <!-- No zone state -->
+    <div class="map-no-zone" id="map-no-zone">
+      <div style="font-size:52px;">🗺️</div>
+      <div style="font-size:20px;font-weight:800;">No Zone Selected</div>
+      <div style="font-size:14px;color:var(--muted);line-height:1.6;">Go to the Zones tab to claim<br>an area to work in.</div>
+      <button onclick="switchTab('zones',document.getElementById('nav-zones'))" style="padding:14px 28px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Pick a Zone →</button>
+    </div>
+    <!-- Zone active state -->
+    <div id="map-zone-active" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
+      <div class="map-zone-header">
+        <div class="map-zone-badge" id="map-zone-badge"></div>
+        <div>
+          <div style="font-size:13px;font-weight:700;" id="map-zone-name"></div>
+          <div style="font-size:11px;color:var(--muted);" id="map-zone-canvass"></div>
+        </div>
+        <div class="map-counter" id="map-counter">0 flyered</div>
+      </div>
+      <div id="zone-map" style="flex:1;min-height:0;height:100%;"></div>
+      <button onclick="locateMe()" style="position:absolute;bottom:100px;right:16px;z-index:999;width:46px;height:46px;border-radius:50%;background:#fff;border:none;box-shadow:0 2px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;">📍</button>
+      <!-- Flyer prompt -->
+      <div class="flyer-prompt" id="flyer-prompt" style="display:none;">
+        <div class="flyer-prompt-title">📬 Flyer This Home</div>
+        <div class="flyer-prompt-sub">Take a photo to verify and log this address.</div>
+        <img id="flyer-preview" class="flyer-preview" alt="photo preview" />
+        <button class="flyer-cam-btn" id="flyer-cam-label" onclick="openCamera()">
+          📸 Take Photo
+        </button>
+        <button class="flyer-confirm-btn" id="flyer-confirm-btn" onclick="submitFlyer()">✅ Confirm & Log</button>
+        <button class="flyer-cancel-btn" onclick="cancelFlyer()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EARNINGS TAB -->
+  <div class="screen" id="tab-earnings" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="scroll-body">
+      <!-- Summary cards -->
+      <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr;">
+        <div class="stat-card">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" style="color:var(--green);font-size:22px;" id="earn-week">—</div>
+          <div class="stat-sub" id="earn-week-homes">— homes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" style="color:var(--accent);font-size:22px;" id="earn-month">—</div>
+          <div class="stat-sub" id="earn-month-homes">— homes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">All Time</div>
+          <div class="stat-value" style="font-size:22px;" id="earn-alltime">—</div>
+          <div class="stat-sub" id="earn-alltime-homes">— homes</div>
+        </div>
+      </div>
+
+      <!-- Period toggle -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="earn-period-btn active" id="ep-week"  onclick="setEarnPeriod('week')"  style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Week</button>
+        <button class="earn-period-btn"        id="ep-month" onclick="setEarnPeriod('month')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--gray);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;">Month</button>
+        <button class="earn-period-btn"        id="ep-year"  onclick="setEarnPeriod('year')"  style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--gray);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;">Year</button>
+      </div>
+
+      <!-- Bar chart -->
+      <div class="acc-card">
+        <div class="acc-header">
+          <div class="acc-title" id="earn-chart-title">Daily Earnings</div>
+          <div class="acc-score" style="font-size:16px;color:var(--green);" id="earn-chart-total">$0</div>
+        </div>
+        <div id="earn-chart-bars" style="display:flex;align-items:flex-end;gap:4px;height:100px;margin-top:12px;"></div>
+        <div id="earn-chart-labels" style="display:flex;gap:4px;margin-top:4px;"></div>
+      </div>
+
+      <!-- Cash out card -->
+      <div id="cashout-card" style="background:var(--white);border:2px solid var(--border);border-radius:14px;padding:18px 16px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <div style="font-size:14px;font-weight:800;" id="cashout-title">Cash Out</div>
+            <div style="font-size:12px;color:var(--muted);" id="cashout-sub">500 flyers required this week</div>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:var(--green);" id="cashout-amount">$0.00</div>
+        </div>
+        <div style="height:8px;background:var(--gray);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+          <div id="cashout-bar" style="height:100%;background:var(--green);border-radius:4px;transition:width .4s;width:0%;"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--muted);" id="cashout-progress-label">0 / 500 flyers this week</div>
+          <div style="font-size:12px;font-weight:700;" id="cashout-pct">0%</div>
+        </div>
+        <button id="cashout-btn" onclick="requestCashout()" disabled
+          style="width:100%;padding:13px;border-radius:11px;border:none;font-size:15px;font-weight:800;cursor:not-allowed;background:#d1d5db;color:#9ca3af;">
+          🔒 Cash Out (need 500 flyers)
+        </button>
+      </div>
+
+      <!-- Rate info -->
+      <div style="background:var(--yellow-bg);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--yellow-text);margin-bottom:4px;">💰 Your Rate — <span id="earn-tier-name">Starter</span> Tier</div>
+        <div style="font-size:13px;color:var(--yellow-text);"><span id="earn-rate-display">$0.10</span> per home flyered · Resets every Sunday · Cash out anytime after 500 flyers</div>
+        <div style="font-size:11px;color:var(--yellow-text);opacity:.8;margin-top:4px;" id="earn-tier-next"></div>
+      </div>
+
+      <!-- Tax note -->
+      <div style="background:var(--gray);border-radius:12px;padding:14px 16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px;">📋 For Your Records</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">Save this for tax purposes. As an independent contractor you may need to report earnings over $600/year. Consult a tax professional for guidance.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MESSAGES TAB — inbox view -->
+  <div class="screen" id="tab-messages" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="topbar" style="padding-top:12px;">
+      <div class="topbar-name">Messages</div>
+      <div class="topbar-sub">FrontPorch Marketing</div>
+    </div>
+    <div class="scroll-body" id="msg-inbox">
+      <!-- Admin thread -->
+      <div class="section-title">Admin</div>
+      <div id="admin-thread-row" onclick="openThread('admin')" style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#C0783022;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🏢</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;">FrontPorch HQ</div>
+          <div id="admin-last-msg" style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Tap to message admin</div>
+        </div>
+        <div id="admin-unread" style="display:none;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;"></div>
+      </div>
+
+      <!-- Customer threads -->
+      <div class="section-title">Customers <span style="font-size:11px;color:var(--muted);font-weight:400;">(active zones only)</span></div>
+      <div id="customer-threads">
+        <div style="color:var(--muted);font-size:13px;padding:8px 0;">Claim a zone to message that customer.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN THREAD -->
+  <div class="screen" id="screen-admin-thread" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="topbar" style="padding-top:12px;">
+      <button onclick="closeThread()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 8px 0 0;color:var(--accent);">‹</button>
+      <div style="flex:1;"><div class="topbar-name">FrontPorch HQ</div><div class="topbar-sub">Admin</div></div>
+    </div>
+    <div class="msg-thread">
+      <div class="chat-msgs" id="cv-chat-msgs"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="cv-chat-input" placeholder="Message admin…" onkeydown="cvSendMsg(event)" />
+        <button class="send-btn" onclick="cvSendMsg({key:'Enter'})">↑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOMER THREAD -->
+  <div class="screen" id="screen-customer-thread" style="position:relative;flex:1;overflow:hidden;flex-direction:column;">
+    <div class="topbar" style="padding-top:12px;">
+      <button onclick="closeThread()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 8px 0 0;color:var(--accent);">‹</button>
+      <div style="flex:1;"><div class="topbar-name" id="customer-thread-name">Customer</div><div class="topbar-sub" id="customer-thread-sub">Active zone</div></div>
+    </div>
+    <div id="customer-locked-banner" style="display:none;background:#fef3c7;padding:10px 16px;font-size:13px;color:#92400e;font-weight:600;text-align:center;flex-shrink:0;">
+      🔒 You no longer have an active zone here. Messaging is closed.
+    </div>
+    <div class="msg-thread">
+      <div class="chat-msgs" id="customer-chat-msgs"></div>
+      <div class="chat-input-row" id="customer-input-row">
+        <input class="chat-input" id="customer-chat-input" placeholder="Message customer…" onkeydown="customerSendMsg(event)" />
+        <button class="send-btn" onclick="customerSendMsg({key:'Enter'})">↑</button>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<!-- ZONE PREVIEW MODAL -->
+<div id="zone-preview-modal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,0.6);flex-direction:column;justify-content:flex-end;">
+  <div style="background:#fff;border-radius:24px 24px 0 0;padding:20px 20px 0;flex-shrink:0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-size:16px;font-weight:800;" id="preview-zone-name">Zone Name</div>
+        <div style="font-size:12px;color:#6b7280;" id="preview-zone-sub"></div>
+      </div>
+      <button onclick="closeZonePreview()" style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+  </div>
+  <div id="preview-map" style="height:320px;flex-shrink:0;"></div>
+  <div style="background:#fff;padding:16px 20px 32px;flex-shrink:0;display:flex;gap:10px;">
+    <button id="preview-claim-btn" onclick="claimFromPreview()" style="flex:1;padding:14px;background:#C07830;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Claim This Zone</button>
+    <button onclick="closeZonePreview()" style="padding:14px 20px;background:#f3f4f6;color:#374151;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Close</button>
+  </div>
+</div>
+
+<!-- CAMERA OVERLAY -->
+<div id="camera-overlay">
+  <button id="camera-close" onclick="closeCamera()">✕</button>
+  <video id="camera-video" autoplay playsinline muted></video>
+  <canvas id="camera-canvas"></canvas>
+  <div id="camera-controls">
+    <div id="camera-shutter" onclick="capturePhoto()">
+      <div id="camera-shutter-inner"></div>
+    </div>
+  </div>
+</div>
+
+<div id="offline-banner">
+  <span>📡 Offline — doors will sync when you reconnect</span>
+  <span class="sync-badge" id="offline-queue-count" style="display:none"></span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3000' : `${location.protocol}//${location.host}`;
+let token = localStorage.getItem('cv_token');
+let me = null;
+
+// ── OFFLINE QUEUE (IndexedDB) ─────────────────────────────────────────────────
+
+const DB_NAME = 'frontporch_offline';
+const STORE   = 'flyer_queue';
+let offlineDB = null;
+
+function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+    };
+    req.onsuccess  = e => { offlineDB = e.target.result; resolve(offlineDB); };
+    req.onerror    = () => reject(req.error);
+  });
+}
+
+function queueFlyer(payload) {
+  return new Promise((resolve, reject) => {
+    const tx = offlineDB.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add({ ...payload, queued_at: Date.now() });
+    tx.oncomplete = resolve;
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+
+function getQueuedFlyers() {
+  return new Promise((resolve, reject) => {
+    const tx = offlineDB.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+function removeQueuedFlyer(id) {
+  return new Promise((resolve, reject) => {
+    const tx = offlineDB.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+
+async function updateOfflineBanner() {
+  const items = await getQueuedFlyers();
+  const banner = document.getElementById('offline-banner');
+  const badge  = document.getElementById('offline-queue-count');
+  if (!navigator.onLine) {
+    banner.classList.add('show');
+    if (items.length > 0) {
+      badge.textContent = `${items.length} queued`;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  } else {
+    if (items.length === 0) {
+      banner.classList.remove('show');
+      badge.style.display = 'none';
+    } else {
+      // online but still syncing
+      banner.classList.add('show');
+      banner.querySelector('span').textContent = '🔄 Syncing offline doors…';
+      badge.textContent = `${items.length} left`;
+      badge.style.display = '';
+    }
+  }
+}
+
+let isSyncing = false;
+async function syncOfflineQueue() {
+  if (isSyncing || !navigator.onLine || !token) return;
+  isSyncing = true;
+  const items = await getQueuedFlyers();
+  if (items.length === 0) { isSyncing = false; return; }
+
+  let synced = 0;
+  for (const item of items) {
+    try {
+      const { id, queued_at, ...payload } = item;
+      const res = await fetch(`${API}/api/canvasser/flyer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        await removeQueuedFlyer(id);
+        synced++;
+        updateZoneCounter(data.count);
+      } else if (res.status === 401) {
+        break; // token expired, stop trying
+      }
+    } catch { break; } // still offline
+  }
+  isSyncing = false;
+
+  if (synced > 0) {
+    await refreshMe();
+    renderHome();
+    const remaining = await getQueuedFlyers();
+    if (remaining.length === 0) {
+      const banner = document.getElementById('offline-banner');
+      banner.classList.remove('show');
+      showToast(`✅ Synced ${synced} offline door${synced>1?'s':''}!`);
+    } else {
+      updateOfflineBanner();
+    }
+  }
+}
+
+// Wire up online/offline events
+window.addEventListener('offline', () => updateOfflineBanner());
+window.addEventListener('online',  () => { updateOfflineBanner(); syncOfflineQueue(); });
+
+// Init DB on load
+openOfflineDB().then(() => {
+  updateOfflineBanner();
+  // Try to sync any leftover queue from previous session
+  if (navigator.onLine) syncOfflineQueue();
+}).catch(e => console.warn('IndexedDB unavailable:', e));
+let shiftActive = false;
+let gpsPos = null;
+let zoneMap = null;
+let zoneMapInit = false;
+let currentZone = null;       // zone object currently claimed
+let pendingFlyerLatLng = null; // {lat,lng} of building being flyered
+let flyerPhotoDataUrl = null;
+let flyeredPositions = [];     // [{lat,lng}] of homes logged this session
+let buildingLayer = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+
+async function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const pin  = document.getElementById('login-pin').value.trim();
+  document.getElementById('login-error').style.display = 'none';
+  if (!name || !pin) return;
+  try {
+    const res = await fetch(`${API}/api/auth/canvasser/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, pin })
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    token = data.token;
+    localStorage.setItem('cv_token', token);
+    await loadApp();
+    requestNotificationPermission();
+  } catch {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+document.getElementById('login-pin').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+function demoLogin() {
+  me = {
+    id:'demo', name:'Marcus Thompson', phone:'(512) 555-0101',
+    location:'Cedar Park, TX', status:'offline',
+    accountability_score:94, lat:30.513, lng:-97.697,
+    currentZone:null, homesFlYeredToday:12, hph:14.2,
+    shiftSecs: 3120, recentHomes:[
+      { logged_at: Math.floor(Date.now()/1000)-600, address:'124 Maple St' },
+      { logged_at: Math.floor(Date.now()/1000)-1200, address:'312 Oak Ave' },
+    ]
+  };
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+  document.getElementById('app-name').textContent = 'Marcus';
+  document.getElementById('app-sub').textContent = 'FrontPorch Marketing';
+  shiftActive = false;
+  currentZone = null;
+  updateShiftBtn();
+  renderHome();
+
+  // Demo zones with real coords (Cedar Park, TX area)
+  allZones = [
+    { id:'z1', name:'Zone A – Maple St',    color:'#22c55e', status:'available', homes_flyered:0,  target_homes:100, canvass_id:'c1', canvass_title:'Summer Push', canvass_location:'Cedar Park, TX',
+      coords: JSON.stringify([[30.522,-97.703],[30.527,-97.703],[30.527,-97.696],[30.522,-97.696]]) },
+    { id:'z2', name:'Zone B – Oak Ave',     color:'#f59e0b', status:'available', homes_flyered:45, target_homes:120, canvass_id:'c1', canvass_title:'Summer Push', canvass_location:'Cedar Park, TX',
+      coords: JSON.stringify([[30.514,-97.708],[30.519,-97.708],[30.519,-97.700],[30.514,-97.700]]) },
+    { id:'z3', name:'Zone C – Cedar Blvd',  color:'#38bdf8', status:'claimed',   homes_flyered:62, target_homes:80,  canvass_id:'c1', canvass_title:'Summer Push', canvass_location:'Cedar Park, TX',
+      claimed_by:'other-pro', coords: JSON.stringify([[30.507,-97.698],[30.512,-97.698],[30.512,-97.691],[30.507,-97.691]]) },
+  ];
+  renderZones();
+}
+
+// ── LOAD APP ──────────────────────────────────────────────────────────────────
+
+async function loadApp() {
+  if (!token) return;
+  try {
+    const res = await fetch(`${API}/api/canvasser/me`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (!res.ok) { localStorage.removeItem('cv_token'); return; }
+    me = await res.json();
+
+    document.getElementById('screen-login').classList.remove('active');
+    document.getElementById('screen-app').classList.add('active');
+    document.getElementById('app-name').textContent = me.name.split(' ')[0];
+
+    shiftActive = me.status === 'active' || me.status === 'idle';
+    currentZone = me.currentZone || null;
+    updateShiftBtn();
+    renderHome();
+    startGPS();
+    startLocationPush();
+    loadMessages();
+    loadCustomerThreads();
+    loadCvSchedule();
+    loadZones();
+    setInterval(refreshMe, 20000);
+    connectCvWS();
+  } catch(e) { console.error(e); }
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+
+function renderHome() {
+  if (!me) return;
+  const homes = me.homesFlYeredToday || 0;
+  document.getElementById('h-homes').textContent = homes;
+  document.getElementById('h-hph').textContent = me.hph > 0 ? `${me.hph} homes/hr` : '— homes/hr';
+  // Earnings: $0.10 base rate shown as estimate
+  document.getElementById('h-earn').textContent = `$${(homes * 0.10).toFixed(2)}`;
+  document.getElementById('h-rate-label').textContent = 'est. at $0.10+/home';
+
+  if (me.shiftSecs) {
+    const h = Math.floor(me.shiftSecs/3600), m = Math.floor((me.shiftSecs%3600)/60);
+    document.getElementById('h-time').textContent = `${h}h ${m}m`;
+    document.getElementById('h-status').textContent = me.status === 'active' ? '🟢 Active' : '🟡 Idle';
+  } else {
+    document.getElementById('h-status').textContent = 'Not started';
+  }
+
+  // Current zone card
+  if (currentZone) {
+    document.getElementById('h-zone-name').textContent = currentZone.name;
+    document.getElementById('h-zone-sub').textContent = `${currentZone.homes_flyered || 0} homes flyered · tap map`;
+  } else {
+    document.getElementById('h-zone-name').textContent = 'None';
+    document.getElementById('h-zone-sub').textContent = 'Tap to pick a zone';
+  }
+
+  // Recent activity
+  const recent = me.recentHomes || [];
+  document.getElementById('h-recent').innerHTML = recent.length
+    ? recent.map(h => {
+        const t = new Date(h.logged_at * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        return `<div class="home-item">
+          <div style="width:36px;height:36px;border-radius:8px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📬</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;">Home Flyered</div>
+            <div style="font-size:12px;color:var(--muted);">${t}${h.address?' · '+h.address:''}</div>
+          </div>
+          ${h.photo_url ? `<img src="${API}${h.photo_url}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-left:auto;" />` : ''}
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:14px;padding:8px 0;">No homes flyered yet today.</div>';
+}
+
+async function refreshMe() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/me`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (res.ok) {
+      me = await res.json();
+      currentZone = me.currentZone || null;
+      renderHome();
+    }
+  } catch {}
+}
+
+// ── SHIFT ─────────────────────────────────────────────────────────────────────
+
+async function toggleShift() {
+  if (!shiftActive) {
+    if (!gpsPos) { alert('Waiting for GPS. Make sure location is enabled.'); return; }
+    await fetch(`${API}/api/canvasser/shift/start`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify({ lat:gpsPos.lat, lng:gpsPos.lng })
+    });
+    shiftActive = true;
+  } else {
+    if (!confirm('End your shift?')) return;
+    await fetch(`${API}/api/canvasser/shift/end`, { method:'POST', headers:{ Authorization:`Bearer ${token}` } });
+    shiftActive = false;
+  }
+  updateShiftBtn();
+  await refreshMe();
+}
+
+function updateShiftBtn() {
+  const btn = document.getElementById('shift-btn');
+  btn.textContent = shiftActive ? 'End Shift' : 'Start Shift';
+  btn.className = `shift-btn ${shiftActive ? 'end' : 'start'}`;
+}
+
+// ── GPS ───────────────────────────────────────────────────────────────────────
+
+function startGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(pos => {
+    gpsPos = { lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy };
+    updateMyMapMarker();
+  }, () => {}, { enableHighAccuracy:true, maximumAge:5000 });
+}
+
+function startLocationPush() {
+  setInterval(async () => {
+    if (!gpsPos || !shiftActive) return;
+    try {
+      await fetch(`${API}/api/canvasser/location`, {
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+        body: JSON.stringify({ lat:gpsPos.lat, lng:gpsPos.lng })
+      });
+    } catch {}
+  }, 30000);
+}
+
+// ── ZONES ─────────────────────────────────────────────────────────────────────
+
+let allZones = [];
+
+async function loadZones() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/zones`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (res.ok) { allZones = await res.json(); renderZones(); }
+  } catch {}
+}
+
+function renderZones() {
+  const myZones   = allZones.filter(z => z.claimed_by === me?.id);
+  const available = allZones.filter(z => z.status === 'available');
+  const tier      = me?.tier || 'Starter';
+  const maxZones  = tier === 'Elite' ? 5 : tier === 'Pro' ? 2 : 1;
+  const atLimit   = myZones.length >= maxZones;
+
+  // My zones section
+  const myZoneSection = document.getElementById('my-zone-section');
+  const myZoneCard    = document.getElementById('my-zone-card');
+  if (myZones.length) {
+    myZoneSection.style.display = 'block';
+    myZoneCard.innerHTML = myZones.map(z => zoneCardHTML(z, true)).join('');
+  } else {
+    myZoneSection.style.display = 'none';
+    myZoneCard.innerHTML = '';
+  }
+
+  // Tier badge + zone limit
+  const tierColor = tier === 'Elite' ? '#7c3aed' : tier === 'Pro' ? '#0ea5e9' : '#6b7280';
+  document.getElementById('avail-title').innerHTML =
+    `Available Zones (${available.length}) <span style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${tierColor}22;color:${tierColor};">${tier} · ${myZones.length}/${maxZones} zones</span>`;
+
+  const list = document.getElementById('zones-list');
+  if (!available.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:16px 0;">No zones available right now.</div>';
+    return;
+  }
+  list.innerHTML = available.map(z => zoneCardHTML(z, false, atLimit)).join('');
+}
+
+function zoneCardHTML(z, isMine, atLimit) {
+  const count  = z.homes_flyered || 0;
+  const target = z.target_homes  || 0;
+  const pct    = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : null;
+  const canComplete = target > 0 && count >= Math.ceil(target * 0.9);
+  const needed = target > 0 ? Math.max(0, Math.ceil(target * 0.9) - count) : 0;
+
+  const progressBar = target > 0 ? `
+    <div style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">
+        <span>${count} of ${target} homes</span>
+        <span style="font-weight:700;color:${pct>=90?'var(--green-text)':'var(--muted)'};">${pct}% complete</span>
+      </div>
+      <div style="height:8px;background:var(--gray);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;border-radius:4px;background:${pct>=90?'var(--green)':'var(--accent)'};width:${pct}%;transition:width 0.4s ease;"></div>
+      </div>
+      ${isMine && !canComplete ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">Need ${needed} more home${needed!==1?'s':''} to submit (90% required)</div>` : ''}
+    </div>` : '';
+
+  const isTaken = z.status === 'claimed' && z.claimed_by !== me?.id;
+  const previewCall = !isMine ? `onclick="previewZone('${z.id}','${z.name}','${z.color||'#22c55e'}','${encodeURIComponent(z.coords||'[]')}',${isTaken})"` : '';
+  return `
+    <div class="zone-card ${isMine ? 'my-zone' : ''}" ${previewCall} style="${!isMine?'cursor:pointer;':''}${isTaken?'opacity:0.65;':''}">
+      <div class="zone-card-header">
+        <div class="zone-dot" style="background:${z.color || '#22c55e'}"></div>
+        <div>
+          <div class="zone-name">${z.name}</div>
+          <div class="zone-canvass">${z.canvass_title} · ${z.canvass_location || ''}</div>
+        </div>
+      </div>
+      <div class="zone-stats">
+        <span>📬 <strong>${count}</strong> homes flyered</span>
+        <span style="color:${isMine?'#15803d':'var(--muted)'}">● ${isMine ? 'Your zone' : 'Available'}</span>
+      </div>
+      ${progressBar}
+      <div class="zone-action-row" style="flex-wrap:wrap;gap:8px;">
+        ${isMine
+          ? `<button class="zone-btn go-map" onclick="goToZoneMap()">🗺 Map</button>
+             <button class="zone-btn release" onclick="releaseZone('${z.id}')">Release</button>
+             <button class="zone-btn ${canComplete ? '' : ''}" onclick="submitZoneComplete('${z.id}')"
+               style="flex-basis:100%;background:${canComplete?'#15803d':'#d1d5db'};color:${canComplete?'#fff':'#9ca3af'};cursor:${canComplete?'pointer':'not-allowed'};"
+               ${canComplete?'':'disabled'}>
+               ${canComplete ? '✅ Submit Zone Complete' : `🔒 Complete (${pct||0}% / 90% needed)`}
+             </button>`
+          : isTaken
+            ? `<button class="zone-btn" style="background:#fee2e2;color:#b91c1c;cursor:not-allowed;flex:1;" disabled>🔴 Zone Taken</button>
+               <button class="zone-btn go-map" onclick="previewZone('${z.id}','${z.name}','${z.color||'#22c55e'}','${encodeURIComponent(z.coords||'[]')}',true)">View Map</button>`
+            : atLimit
+            ? `<button class="zone-btn" style="background:var(--gray);color:var(--muted);cursor:not-allowed;" disabled>Zone Limit Reached</button>
+               <button class="zone-btn go-map" onclick="previewZone('${z.id}','${z.name}','${z.color||'#22c55e'}','${encodeURIComponent(z.coords||'[]')}',false)">Preview</button>`
+            : `<button class="zone-btn claim" onclick="event.stopPropagation();claimZone('${z.id}')">Claim This Zone</button>
+               <button class="zone-btn go-map" onclick="previewZone('${z.id}','${z.name}','${z.color||'#22c55e'}','${encodeURIComponent(z.coords||'[]')}',false)">Preview</button>`
+        }
+      </div>
+    </div>`;
+}
+
+async function claimZone(zoneId) {
+  try {
+    const res = await fetch(`${API}/api/canvasser/zones/${zoneId}/claim`, {
+      method:'POST', headers:{ Authorization:`Bearer ${token}` }
+    });
+    if (res.status === 409) { showToast('⚠️ Already claimed — choose another'); return; }
+    if (res.status === 403) {
+      const data = await res.json();
+      showToast(`🚫 ${data.tier} tier can only hold ${data.maxZones} zone${data.maxZones>1?'s':''}. Release one first.`);
+      return;
+    }
+    if (!res.ok) throw new Error();
+    await refreshMe();
+    await loadZones();
+    showToast('✅ Zone claimed! Head to the Map tab.');
+    // Auto-navigate to map
+    setTimeout(() => goToZoneMap(), 800);
+  } catch { showToast('Failed to claim zone.'); }
+}
+
+async function submitZoneComplete(zoneId) {
+  if (!confirm('Mark this zone as complete? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`${API}/api/canvasser/zones/${zoneId}/complete`, {
+      method:'POST', headers:{ Authorization:`Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.status === 422) {
+      showToast(`🔒 Need ${data.needed} more home${data.needed!==1?'s':''} — at ${data.pct}%, need 90%`);
+      return;
+    }
+    if (!res.ok) { showToast(data.error || 'Could not complete zone.'); return; }
+    showToast(`🎉 Zone submitted complete! ${data.flyered} homes flyered.`);
+    currentZone = null;
+    zoneMapInit = false; zoneMap = null;
+    document.getElementById('map-no-zone').style.display = 'flex';
+    document.getElementById('map-zone-active').style.display = 'none';
+    await refreshMe();
+    await loadZones();
+    renderHome();
+  } catch { showToast('Failed to submit zone.'); }
+}
+
+async function releaseZone(zoneId) {
+  if (!confirm('Release this zone? You can reclaim it later.')) return;
+  try {
+    await fetch(`${API}/api/canvasser/zones/${zoneId}/claim`, {
+      method:'DELETE', headers:{ Authorization:`Bearer ${token}` }
+    });
+    currentZone = null;
+    zoneMapInit = false;
+    zoneMap = null;
+    document.getElementById('map-no-zone').style.display = 'flex';
+    document.getElementById('map-zone-active').style.display = 'none';
+    await refreshMe();
+    await loadZones();
+    renderHome();
+    showToast('Zone released.');
+  } catch { showToast('Failed to release zone.'); }
+}
+
+function goToZoneMap() {
+  switchTab('map', document.getElementById('nav-map'));
+}
+
+// ── ZONE MAP ──────────────────────────────────────────────────────────────────
+
+function initZoneMap(zone) {
+  if (zoneMapInit && zoneMap) {
+    zoneMap.invalidateSize();
+    return;
+  }
+  zoneMapInit = true;
+
+  const coords = JSON.parse(zone.coords); // [[lat,lng],...]
+  const lats = coords.map(c => c[0]), lngs = coords.map(c => c[1]);
+  const bounds = L.latLngBounds(coords.map(c => [c[0], c[1]]));
+
+  zoneMap = L.map('zone-map', { zoomControl:true }).fitBounds(bounds, { padding:[20,20] });
+  window._zoneMap = zoneMap;
+
+  // Satellite tiles
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution:'© Esri', maxZoom:20
+  }).addTo(zoneMap);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom:20, opacity:0.7
+  }).addTo(zoneMap);
+
+  // Zone boundary polygon
+  L.polygon(coords, { color:zone.color||'#22c55e', fillColor:zone.color||'#22c55e', fillOpacity:0.12, weight:3 })
+    .addTo(zoneMap);
+
+  // Building layer
+  buildingLayer = L.layerGroup().addTo(zoneMap);
+
+  // Load already-flyered homes
+  loadFlyeredHomes(zone.id);
+
+  // Fetch buildings after map settles
+  zoneMap.once('moveend', () => fetchZoneBuildings(zoneMap.getBounds()));
+  zoneMap.on('moveend', () => fetchZoneBuildings(zoneMap.getBounds()));
+
+  // GPS marker
+  updateMyMapMarker();
+}
+
+async function loadFlyeredHomes(zoneId) {
+  try {
+    const res = await fetch(`${API}/api/canvasser/zones/${zoneId}/homes`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (!res.ok) return;
+    const homes = await res.json();
+    flyeredPositions = homes.map(h => ({ lat:h.lat, lng:h.lng }));
+    homes.forEach(h => addGreenPin(h.lat, h.lng, h.photo_url));
+    updateZoneCounter(homes.length);
+  } catch {}
+}
+
+function addGreenPin(lat, lng, photoUrl) {
+  if (!zoneMap) return;
+  const icon = L.divIcon({
+    className:'',
+    html:`<div style="width:32px;height:32px;border-radius:50%;border:3px solid #22c55e;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:#22c55e;">
+      ${photoUrl ? `<img src="${API}${photoUrl}" style="width:100%;height:100%;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;">📬</div>'}
+    </div>`,
+    iconSize:[32,32], iconAnchor:[16,16]
+  });
+  L.marker([lat, lng], { icon }).addTo(zoneMap);
+}
+
+function updateZoneCounter(count) {
+  const el = document.getElementById('map-counter');
+  if (el) el.textContent = `${count} flyered`;
+}
+
+let buildingFetchController = null;
+
+async function fetchZoneBuildings(bounds) {
+  if (!zoneMap || !buildingLayer) return;
+  if (zoneMap.getZoom() < 14) { buildingLayer.clearLayers(); return; }
+
+  const bbox = bounds instanceof L.LatLngBounds ? bounds : zoneMap.getBounds();
+  const s = bbox.getSouth(), w = bbox.getWest(), n = bbox.getNorth(), e = bbox.getEast();
+
+  if (buildingFetchController) buildingFetchController.abort();
+  buildingFetchController = new AbortController();
+
+  const query = `[out:json][timeout:15];(way["building"](${s},${w},${n},${e});relation["building"](${s},${w},${n},${e}););out geom;`;
+  try {
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal:buildingFetchController.signal });
+    const data = await res.json();
+    buildingLayer.clearLayers();
+    data.elements.forEach(el => {
+      let coords = null;
+      if (el.type === 'way' && el.geometry) coords = el.geometry.map(p => [p.lat, p.lon]);
+      else if (el.type === 'relation' && el.members) {
+        const outer = el.members.find(m => m.role === 'outer' && m.geometry);
+        if (outer) coords = outer.geometry.map(p => [p.lat, p.lon]);
+      }
+      if (!coords || coords.length < 3) return;
+
+      const center = coords.reduce((acc,c) => [acc[0]+c[0], acc[1]+c[1]], [0,0]).map(v => v/coords.length);
+      const alreadyFlyered = flyeredPositions.some(p => {
+        const dlat = p.lat - center[0], dlng = p.lng - center[1];
+        return Math.sqrt(dlat*dlat + dlng*dlng) < 0.0002;
+      });
+
+      if (alreadyFlyered) return; // green pin already shown
+
+      const poly = L.polygon(coords, {
+        color:'#38bdf8', fillColor:'#38bdf8', fillOpacity:0.2, weight:1.5
+      });
+      poly.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        showFlyerPrompt(center[0], center[1]);
+      });
+      poly.on('mouseover', () => poly.setStyle({ fillOpacity:0.45, weight:2.5 }));
+      poly.on('mouseout',  () => poly.setStyle({ fillOpacity:0.2,  weight:1.5 }));
+      buildingLayer.addLayer(poly);
+    });
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('Building fetch error', e);
+  }
+}
+
+function locateMe() {
+  if (!zoneMap) return;
+  if (gpsPos) {
+    zoneMap.setView([gpsPos.lat, gpsPos.lng], 18, { animate:true });
+  } else {
+    showToast('📍 Getting your location…');
+    navigator.geolocation.getCurrentPosition(pos => {
+      gpsPos = { lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy };
+      zoneMap.setView([gpsPos.lat, gpsPos.lng], 18, { animate:true });
+      updateMyMapMarker();
+    }, () => showToast('Could not get location. Check permissions.'), { enableHighAccuracy:true });
+  }
+}
+
+function updateMyMapMarker() {
+  if (!zoneMap || !gpsPos) return;
+  const latlng = [gpsPos.lat, gpsPos.lng];
+  if (window._myZoneMarker) {
+    window._myZoneMarker.setLatLng(latlng);
+    if (window._myAccCircle) window._myAccCircle.setLatLng(latlng);
+  } else {
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="position:relative;width:36px;height:36px;">
+        <div style="position:absolute;inset:0;border-radius:50%;background:rgba(14,165,233,0.2);animation:gps-pulse 1.8s ease-out infinite;"></div>
+        <div style="position:absolute;inset:8px;border-radius:50%;background:#0ea5e9;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>
+      </div>`,
+      iconSize:[36,36], iconAnchor:[18,18]
+    });
+    window._myZoneMarker = L.marker(latlng, { icon, zIndexOffset:2000 }).addTo(zoneMap);
+    window._myZoneMarker.bindTooltip('📍 You', { permanent:false, direction:'top', offset:[0,-18] });
+    if (gpsPos.acc && gpsPos.acc < 200) {
+      window._myAccCircle = L.circle(latlng, {
+        radius: gpsPos.acc,
+        color:'#0ea5e9', fillColor:'#0ea5e9', fillOpacity:0.08, weight:1
+      }).addTo(zoneMap);
+    }
+  }
+}
+
+// ── FLYER FLOW ────────────────────────────────────────────────────────────────
+
+function showFlyerPrompt(lat, lng) {
+  pendingFlyerLatLng = { lat, lng };
+  flyerPhotoDataUrl = null;
+  const preview = document.getElementById('flyer-preview');
+  preview.style.display = 'none';
+  preview.src = '';
+  document.getElementById('flyer-cam-label').style.display = 'flex';
+  document.getElementById('flyer-confirm-btn').style.display = 'none';
+  document.getElementById('flyer-prompt').style.display = 'block';
+}
+
+function cancelFlyer() {
+  pendingFlyerLatLng = null;
+  flyerPhotoDataUrl = null;
+  document.getElementById('flyer-prompt').style.display = 'none';
+}
+
+let cameraStream = null;
+
+async function openCamera() {
+  const overlay = document.getElementById('camera-overlay');
+  const video   = document.getElementById('camera-video');
+  overlay.classList.add('show');
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    video.srcObject = cameraStream;
+  } catch(e) {
+    overlay.classList.remove('show');
+    showToast('Camera access denied. Please allow camera in settings.');
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('camera-overlay').classList.remove('show');
+  document.getElementById('camera-video').srcObject = null;
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  flyerPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  closeCamera();
+  const preview = document.getElementById('flyer-preview');
+  preview.src = flyerPhotoDataUrl;
+  preview.style.display = 'block';
+  document.getElementById('flyer-cam-label').style.display = 'none';
+  document.getElementById('flyer-confirm-btn').style.display = 'block';
+}
+
+async function submitFlyer() {
+  if (!pendingFlyerLatLng || !flyerPhotoDataUrl || !currentZone) return;
+  const btn = document.getElementById('flyer-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Logging…';
+
+  const payload = {
+    zone_id: currentZone.id,
+    lat: pendingFlyerLatLng.lat,
+    lng: pendingFlyerLatLng.lng,
+    photo_base64: flyerPhotoDataUrl
+  };
+
+  // ── OFFLINE PATH ─────────────────────────────────────────────────────────
+  if (!navigator.onLine) {
+    await queueFlyer(payload);
+    // Optimistic UI — show pin immediately, increment local counter
+    flyeredPositions.push(pendingFlyerLatLng);
+    addGreenPin(pendingFlyerLatLng.lat, pendingFlyerLatLng.lng, flyerPhotoDataUrl);
+    const currentCount = parseInt(document.getElementById('map-counter')?.textContent || '0') + 1;
+    updateZoneCounter(currentCount);
+    cancelFlyer();
+    fetchZoneBuildings(zoneMap.getBounds());
+    updateOfflineBanner();
+    showToast('📥 Saved offline — will sync when back online');
+    btn.disabled = false; btn.textContent = '✅ Confirm & Log';
+    return;
+  }
+
+  // ── ONLINE PATH ──────────────────────────────────────────────────────────
+  try {
+    const res = await fetch(`${API}/api/canvasser/flyer`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    flyeredPositions.push(pendingFlyerLatLng);
+    addGreenPin(pendingFlyerLatLng.lat, pendingFlyerLatLng.lng, data.photo_url);
+    updateZoneCounter(data.count);
+    cancelFlyer();
+    fetchZoneBuildings(zoneMap.getBounds());
+    showToast(`📬 Home flyered! ${data.count} total in this zone`);
+    await refreshMe();
+    renderHome();
+  } catch(e) {
+    // Network failed mid-request — queue it for retry
+    if (offlineDB) {
+      await queueFlyer(payload);
+      flyeredPositions.push(pendingFlyerLatLng);
+      addGreenPin(pendingFlyerLatLng.lat, pendingFlyerLatLng.lng, flyerPhotoDataUrl);
+      const currentCount = parseInt(document.getElementById('map-counter')?.textContent || '0') + 1;
+      updateZoneCounter(currentCount);
+      cancelFlyer();
+      updateOfflineBanner();
+      showToast('📥 Connection lost — door saved, will sync soon');
+    } else {
+      showToast('Failed to log — check your connection.');
+    }
+    btn.disabled = false; btn.textContent = '✅ Confirm & Log';
+  }
+}
+
+// ── MESSAGES ──────────────────────────────────────────────────────────────────
+
+let cvMessages = [];
+let activeCustomerCanvassId = null;
+let activeCustomerZoneActive = false;
+
+async function loadMessages() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/messages`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (res.ok) {
+      cvMessages = await res.json();
+      renderCvMessages();
+      // Update inbox last message preview
+      if (cvMessages.length) {
+        const last = cvMessages[cvMessages.length - 1];
+        document.getElementById('admin-last-msg').textContent = (last.from_type === 'canvasser' ? 'You: ' : '') + last.text;
+      }
+      const unread = cvMessages.filter(m => m.from_type !== 'canvasser' && !m.read).length;
+      const badge = document.getElementById('admin-unread');
+      if (unread > 0) { badge.textContent = unread; badge.style.display = ''; }
+      else badge.style.display = 'none';
+    }
+  } catch {}
+}
+
+function renderCvMessages() {
+  document.getElementById('cv-chat-msgs').innerHTML = cvMessages.map(m => `
+    <div>
+      <div class="bubble ${m.from_type==='canvasser'?'me':'them'}">${m.text}</div>
+      <div class="bubble-meta ${m.from_type==='canvasser'?'me':''}">
+        ${m.from_type==='canvasser'?'You':'FrontPorch'} · ${relTime(m.sent_at)}
+      </div>
+    </div>`).join('');
+  const el = document.getElementById('cv-chat-msgs');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function cvSendMsg(e) {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('cv-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    await fetch(`${API}/api/canvasser/messages`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify({ text })
+    });
+    await loadMessages();
+  } catch {}
+}
+
+async function loadCustomerThreads() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/customer-messages`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (!res.ok) return;
+    const threads = await res.json();
+    const el = document.getElementById('customer-threads');
+    if (!threads.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Claim a zone to message that customer.</div>';
+      return;
+    }
+    el.innerHTML = threads.map(t => `
+      <div onclick="openCustomerThread('${t.canvass_id}','${t.customer_name||t.title}','${t.title}')" style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#0ea5e922;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🏘️</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;">${t.customer_name||'Customer'}</div>
+          <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.last_message||t.title}</div>
+        </div>
+        ${t.unread > 0 ? `<div style="background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;">${t.unread}</div>` : ''}
+      </div>`).join('');
+  } catch {}
+}
+
+async function openCustomerThread(canvassId, customerName, canvassTitle) {
+  activeCustomerCanvassId = canvassId;
+  document.getElementById('customer-thread-name').textContent = customerName || 'Customer';
+  document.getElementById('customer-thread-sub').textContent = canvassTitle;
+
+  // Check if zone still active
+  try {
+    const res = await fetch(`${API}/api/canvasser/customer-messages/${canvassId}`, { headers:{ Authorization:`Bearer ${token}` } });
+    const locked = document.getElementById('customer-locked-banner');
+    const inputRow = document.getElementById('customer-input-row');
+    if (res.status === 403) {
+      activeCustomerZoneActive = false;
+      locked.style.display = 'block';
+      inputRow.style.display = 'none';
+    } else {
+      activeCustomerZoneActive = true;
+      locked.style.display = 'none';
+      inputRow.style.display = 'flex';
+      const msgs = await res.json();
+      document.getElementById('customer-chat-msgs').innerHTML = msgs.map(m => `
+        <div>
+          <div class="bubble ${m.from_type==='canvasser'?'me':'them'}">${m.text}</div>
+          <div class="bubble-meta ${m.from_type==='canvasser'?'me':''}">
+            ${m.from_type==='canvasser'?'You':customerName} · ${relTime(m.sent_at)}
+          </div>
+        </div>`).join('');
+      const el = document.getElementById('customer-chat-msgs');
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch {}
+
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-customer-thread').classList.add('active');
+}
+
+async function customerSendMsg(e) {
+  if (e.key !== 'Enter' || !activeCustomerCanvassId || !activeCustomerZoneActive) return;
+  const input = document.getElementById('customer-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    const res = await fetch(`${API}/api/canvasser/customer-messages/${activeCustomerCanvassId}`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify({ text })
+    });
+    if (res.status === 403) {
+      document.getElementById('customer-locked-banner').style.display = 'block';
+      document.getElementById('customer-input-row').style.display = 'none';
+      activeCustomerZoneActive = false;
+      showToast('🔒 You no longer have an active zone here.');
+      return;
+    }
+    await openCustomerThread(activeCustomerCanvassId, document.getElementById('customer-thread-name').textContent, document.getElementById('customer-thread-sub').textContent);
+  } catch {}
+}
+
+function openThread(type) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  if (type === 'admin') {
+    document.getElementById('screen-admin-thread').classList.add('active');
+    loadMessages();
+  }
+}
+
+function closeThread() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-messages').classList.add('active');
+  document.getElementById('screen-app').classList.add('active');
+  loadCustomerThreads();
+  loadMessages();
+}
+
+function relTime(ts) {
+  const diff = Math.floor(Date.now()/1000) - ts;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+// ── SCHEDULE ──────────────────────────────────────────────────────────────────
+
+const shiftColors = {
+  morning:   { bg:'#dbeafe', color:'#1e40af', label:'Morning', sub:'8am – 12pm' },
+  afternoon: { bg:'#dcfce7', color:'#15803d', label:'Afternoon', sub:'12pm – 5pm' },
+  full:      { bg:'#ede9fe', color:'#5b21b6', label:'Full Day', sub:'8am – 8pm' },
+};
+const dayNamesShort   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const monthNamesShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+async function loadCvSchedule() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/schedule`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (!res.ok) return;
+    renderCvSchedule(await res.json());
+  } catch {}
+}
+
+function renderCvSchedule(shifts) {
+  const el = document.getElementById('h-schedule');
+  if (!shifts || !shifts.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0 12px;">No upcoming shifts scheduled.</div>';
+    return;
+  }
+  el.innerHTML = shifts.map(s => {
+    const d = new Date(s.shift_date + 'T12:00:00');
+    const today = new Date().toISOString().slice(0,10);
+    const isToday = s.shift_date === today;
+    const meta = shiftColors[s.shift_type] || shiftColors.morning;
+    const dayLabel = isToday ? 'Today' : dayNamesShort[d.getDay()] + ' ' + monthNamesShort[d.getMonth()] + ' ' + d.getDate();
+    return `<div style="background:${meta.bg};border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;border:${isToday?'2px solid '+meta.color:'1px solid transparent'};">
+        <div style="font-size:22px;">📅</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;color:${meta.color};">${dayLabel}</div>
+          <div style="font-size:12px;color:${meta.color};opacity:0.8;">${meta.label} · ${meta.sub}</div>
+        </div>
+        ${isToday?`<div style="background:${meta.color};color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">TODAY</div>`:''}
+      </div>`;
+  }).join('');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+
+function switchTab(tab, el) {
+  document.querySelectorAll('#tab-home,#tab-zones,#tab-map,#tab-messages,#tab-earnings').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  el.classList.add('active');
+
+  if (tab === 'map') {
+    if (currentZone) {
+      document.getElementById('map-no-zone').style.display = 'none';
+      const activeEl = document.getElementById('map-zone-active');
+      activeEl.style.display = 'flex';
+      activeEl.style.flexDirection = 'column';
+      document.getElementById('map-zone-name').textContent = currentZone.name;
+      document.getElementById('map-zone-canvass').textContent = currentZone.canvass_title || '';
+      document.getElementById('map-zone-badge').style.background = currentZone.color || '#22c55e';
+      setTimeout(() => {
+        initZoneMap(currentZone);
+        if (zoneMap) zoneMap.invalidateSize();
+      }, 150);
+    } else {
+      document.getElementById('map-no-zone').style.display = 'flex';
+      document.getElementById('map-zone-active').style.display = 'none';
+    }
+  }
+
+  if (tab === 'zones') loadZones();
+
+  if (tab === 'messages') {
+    loadMessages();
+    loadCustomerThreads();
+    const dot = document.getElementById('msg-badge');
+    if (dot) dot.style.display = 'none';
+  }
+
+  if (tab === 'earnings') loadEarnings();
+}
+
+// ── EARNINGS ─────────────────────────────────────────────────────────────────
+
+let earnPeriod = 'week';
+
+async function loadEarnings() {
+  try {
+    const res = await fetch(`${API}/api/canvasser/earnings?period=${earnPeriod}`, {
+      headers:{ Authorization:`Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const d = await res.json();
+    const rate = d.rate || 0.10;
+    document.getElementById('earn-week').textContent       = `$${(d.thisWeek * rate).toFixed(2)}`;
+    document.getElementById('earn-week-homes').textContent  = `${d.thisWeek.toLocaleString()} homes`;
+    document.getElementById('earn-month').textContent      = `$${(d.thisMonth * rate).toFixed(2)}`;
+    document.getElementById('earn-month-homes').textContent = `${d.thisMonth.toLocaleString()} homes`;
+    document.getElementById('earn-alltime').textContent    = `$${(d.allTime * rate).toFixed(2)}`;
+    document.getElementById('earn-alltime-homes').textContent = `${d.allTime.toLocaleString()} homes`;
+
+    // Tier display
+    document.getElementById('earn-tier-name').textContent    = d.tier || 'Starter';
+    document.getElementById('earn-rate-display').textContent  = `$${rate.toFixed(2)}`;
+    const nextTiers = {
+      Starter: `Next: Pro ($0.18/home) — flyer 1,000 homes this week · recommended pace ~3 days`,
+      Pro:     `Next: Elite ($0.25/home) — flyer 1,500 homes this week · recommended pace ~4 days`,
+      Elite:   `🏆 Top tier this week — keep it up!`,
+    };
+    document.getElementById('earn-tier-next').textContent = nextTiers[d.tier] || '';
+
+    // Cashout card
+    const weekHomes = d.thisWeek || 0;
+    const CASHOUT_MIN = 500;
+    const canCashout = weekHomes >= CASHOUT_MIN && !d.alreadyCashedOut;
+    const pct = Math.min(100, Math.round((weekHomes / CASHOUT_MIN) * 100));
+    const weekEarnings = (weekHomes * rate).toFixed(2);
+    document.getElementById('cashout-amount').textContent = `$${weekEarnings}`;
+    document.getElementById('cashout-bar').style.width = pct + '%';
+    document.getElementById('cashout-bar').style.background = canCashout ? 'var(--green)' : 'var(--accent)';
+    document.getElementById('cashout-progress-label').textContent = `${weekHomes.toLocaleString()} / ${CASHOUT_MIN} flyers this week`;
+    document.getElementById('cashout-pct').textContent = pct + '%';
+    const btn = document.getElementById('cashout-btn');
+    if (d.alreadyCashedOut) {
+      btn.textContent = '✅ Cashed Out This Week';
+      btn.style.background = 'var(--green-bg)'; btn.style.color = 'var(--green-text)'; btn.style.cursor = 'default'; btn.disabled = true;
+      document.getElementById('cashout-sub').textContent = 'Already cashed out — resets Sunday';
+    } else if (canCashout) {
+      btn.textContent = `💸 Cash Out $${weekEarnings}`;
+      btn.style.background = 'var(--green)'; btn.style.color = '#fff'; btn.style.cursor = 'pointer'; btn.disabled = false;
+      document.getElementById('cashout-sub').textContent = `You've hit 500! Ready to cash out.`;
+    } else {
+      btn.textContent = `🔒 Cash Out — need ${Math.max(0, CASHOUT_MIN - weekHomes)} more flyers`;
+      btn.style.background = '#d1d5db'; btn.style.color = '#9ca3af'; btn.style.cursor = 'not-allowed'; btn.disabled = true;
+      document.getElementById('cashout-sub').textContent = `${CASHOUT_MIN - weekHomes} more flyers to unlock`;
+    }
+
+    renderEarnChart(d.rows, rate);
+  } catch {}
+}
+
+function renderEarnChart(rows, rate) {
+  const barsEl   = document.getElementById('earn-chart-bars');
+  const labelsEl = document.getElementById('earn-chart-labels');
+  if (!rows.length) {
+    barsEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">No data yet.</div>';
+    labelsEl.innerHTML = '';
+    return;
+  }
+  const maxHomes = Math.max(...rows.map(r => r.homes), 1);
+  const total = rows.reduce((s, r) => s + r.homes, 0);
+  document.getElementById('earn-chart-total').textContent = `$${(total * rate).toFixed(2)}`;
+
+  barsEl.innerHTML = rows.map(r => {
+    const h = Math.max(4, Math.round((r.homes / maxHomes) * 96));
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <div style="font-size:10px;color:var(--muted);font-weight:600;">$${(r.homes*rate).toFixed(0)}</div>
+      <div style="width:100%;height:${h}px;background:var(--accent);border-radius:4px 4px 0 0;min-height:4px;"></div>
+    </div>`;
+  }).join('');
+
+  labelsEl.innerHTML = rows.map(r => {
+    const label = earnPeriod === 'year' ? r.period.slice(5) : r.period.slice(5);
+    return `<div style="flex:1;text-align:center;font-size:10px;color:var(--muted);">${label}</div>`;
+  }).join('');
+}
+
+async function requestCashout() {
+  const btn = document.getElementById('cashout-btn');
+  btn.textContent = 'Requesting…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/canvasser/cashout`, {
+      method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('💸 Cash out requested! You\'ll receive payment shortly.');
+      loadEarnings();
+    } else {
+      showToast(`⚠️ ${data.error || 'Could not process cashout'}`);
+      btn.disabled = false;
+    }
+  } catch {
+    showToast('⚠️ Could not reach server. Try again.');
+    btn.disabled = false;
+  }
+}
+
+function setEarnPeriod(p) {
+  earnPeriod = p;
+  ['week','month','year'].forEach(k => {
+    const btn = document.getElementById('ep-'+k);
+    const active = k === p;
+    btn.style.background = active ? 'var(--accent)' : 'var(--gray)';
+    btn.style.color      = active ? '#fff' : 'var(--muted)';
+    btn.style.borderColor= active ? 'var(--accent)' : 'var(--border)';
+  });
+  const titles = { week:'Daily Earnings (This Week)', month:'Daily Earnings (This Month)', year:'Monthly Earnings (This Year)' };
+  document.getElementById('earn-chart-title').textContent = titles[p];
+  loadEarnings();
+}
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    // Delay slightly so it doesn't fire right at login
+    setTimeout(() => Notification.requestPermission(), 1500);
+  }
+}
+
+function pushNotification(title, body) {
+  // OS-level notification — only fires when tab is hidden or app is backgrounded
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%23C07830"/><text y="44" x="12" font-size="36">🏠</text></svg>',
+        tag: 'frontporch-message', // replaces previous notification instead of stacking
+        renotify: true,
+      });
+      n.onclick = () => { window.focus(); n.close(); switchTab('messages', document.getElementById('nav-messages')); };
+    } catch {}
+  }
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────────
+
+function connectCvWS() {
+  try {
+    const wsUrl = API.replace('http','ws').replace('https','wss') || `ws://${location.hostname}:3000`;
+    const ws = new WebSocket(wsUrl === '' ? `ws://${location.hostname}:3000` : wsUrl);
+    ws.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'new_message' && msg.canvasserId === me?.id) {
+        loadMessages();
+        const activeNavBtn = document.querySelector('.nav-btn.active');
+        if (activeNavBtn?.id !== 'nav-messages') {
+          // Badge dot
+          const dot = document.getElementById('msg-badge');
+          if (dot) dot.style.display = '';
+          // OS push notification
+          const preview = msg.text ? (msg.text.length > 60 ? msg.text.slice(0, 60) + '…' : msg.text) : 'New message from FrontPorch';
+          pushNotification('FrontPorch 💬', preview);
+          // In-app toast fallback (always show when not on messages tab)
+          if (msg.text) showToast(`💬 ${preview}`);
+        }
+      }
+      if (msg.type === 'customer_message' && msg.canvasserId === me?.id) {
+        loadCustomerThreads();
+        if (msg.from === 'customer') {
+          // Refresh open thread if it matches
+          if (activeCustomerCanvassId === msg.canvassId) {
+            openCustomerThread(msg.canvassId, document.getElementById('customer-thread-name').textContent, document.getElementById('customer-thread-sub').textContent);
+          }
+          const preview = msg.text ? (msg.text.length > 60 ? msg.text.slice(0,60)+'…' : msg.text) : 'New message from customer';
+          showToast(`🏘️ Customer: ${preview}`);
+          pushNotification('Customer Message', preview);
+        }
+      }
+      if (msg.type === 'home_flyered' && msg.canvasserId === me?.id) {
+        updateZoneCounter(msg.count);
+      }
+      if (msg.type === 'zone_complete' && msg.canvasserId === me?.id && msg.customerConfirmed) {
+        showToast('🎉 Your customer confirmed this zone complete!');
+        currentZone = null; zoneMapInit = false; zoneMap = null;
+        document.getElementById('map-no-zone').style.display = 'flex';
+        document.getElementById('map-zone-active').style.display = 'none';
+        await refreshMe();
+        await loadZones();
+        renderHome();
+      }
+    };
+    ws.onclose = () => setTimeout(connectCvWS, 5000);
+    ws.onerror = () => {};
+  } catch {}
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+
+// ── ZONE PREVIEW ─────────────────────────────────────────────────────────────
+
+let previewMap = null, previewZoneId = null;
+
+function previewZone(id, name, color, encodedCoords, isTaken) {
+  previewZoneId = id;
+  const coords = JSON.parse(decodeURIComponent(encodedCoords)); // [[lat,lng],...]
+
+  document.getElementById('preview-zone-name').textContent = name;
+  document.getElementById('preview-zone-sub').textContent = isTaken
+    ? '🔴 Currently being flyered by another Porch Pro'
+    : 'Zone preview — tap to explore';
+
+  const tier     = me?.tier || 'Starter';
+  const maxZones = tier === 'Elite' ? 5 : tier === 'Pro' ? 2 : 1;
+  const held     = (allZones||[]).filter(z => z.claimed_by === me?.id).length;
+  const atLimit  = held >= maxZones;
+  const btn = document.getElementById('preview-claim-btn');
+
+  if (isTaken) {
+    btn.textContent = '🔴 Zone Already Taken';
+    btn.style.background = '#d1d5db';
+    btn.style.color = '#6b7280';
+    btn.style.cursor = 'not-allowed';
+    btn.disabled = true;
+  } else if (atLimit) {
+    btn.textContent = 'Zone Limit Reached';
+    btn.style.background = '#d1d5db';
+    btn.style.color = '#6b7280';
+    btn.style.cursor = 'not-allowed';
+    btn.disabled = true;
+  } else {
+    btn.textContent = '✅ Claim This Zone';
+    btn.style.background = '#C07830';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+    btn.disabled = false;
+  }
+
+  document.getElementById('zone-preview-modal').style.display = 'flex';
+
+  setTimeout(() => {
+    // Destroy old map
+    if (previewMap) { previewMap.remove(); previewMap = null; }
+
+    if (!coords || !coords.length) {
+      document.getElementById('preview-map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:14px;">No map data for this zone</div>';
+      return;
+    }
+
+    // coords are [lat,lng] — convert to [lng,lat] for MapLibre
+    const lngLat = coords.map(c => [c[1], c[0]]);
+    const lngs = lngLat.map(c=>c[0]), lats = lngLat.map(c=>c[1]);
+    const bounds = [[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
+    const center = [(bounds[0][0]+bounds[1][0])/2, (bounds[0][1]+bounds[1][1])/2];
+
+    previewMap = new maplibregl.Map({
+      container: 'preview-map',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center, zoom: 13,
+    });
+
+    previewMap.on('load', () => {
+      // Zone polygon
+      previewMap.addSource('pzone', { type:'geojson', data:{
+        type:'Feature', geometry:{ type:'Polygon', coordinates:[[...lngLat, lngLat[0]]] }
+      }});
+      previewMap.addLayer({ id:'pzone-fill', type:'fill', source:'pzone',
+        paint:{ 'fill-color': color||'#C07830', 'fill-opacity':0.3 } });
+      previewMap.addLayer({ id:'pzone-line', type:'line', source:'pzone',
+        paint:{ 'line-color': color||'#C07830', 'line-width':3 } });
+      // Fit to zone bounds
+      previewMap.fitBounds(bounds, { padding:40, duration:400 });
+    });
+  }, 150);
+}
+
+function closeZonePreview() {
+  document.getElementById('zone-preview-modal').style.display = 'none';
+  if (previewMap) { previewMap.remove(); previewMap = null; }
+  previewZoneId = null;
+}
+
+async function claimFromPreview() {
+  if (!previewZoneId) return;
+  const id = previewZoneId;
+  closeZonePreview();
+  await claimZone(id);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display = 'none', 2800);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+if (token) { loadApp(); requestNotificationPermission(); }
+</script>
+</body>
+</html>

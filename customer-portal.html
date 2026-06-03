@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FrontPorch — Customer Portal (DEMO)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#F5F0E8; --white:#fff; --border:#e5e7eb;
+      --accent:#C07830; --accent-dark:#A06020;
+      --brand-dark:#2A2215;
+      --green:#22c55e; --green-bg:#dcfce7; --green-text:#15803d;
+      --red:#ef4444; --red-bg:#fee2e2; --red-text:#b91c1c;
+      --blue:#3b82f6; --blue-bg:#eff6ff;
+      --text:#111827; --text2:#374151; --muted:#6b7280;
+      --font:'Inter',system-ui,sans-serif;
+      --radius:14px;
+    }
+    body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── DEMO BANNER ── */
+    .demo-banner { background:var(--brand-dark); color:#F5F0E8; text-align:center; padding:7px; font-size:12px; font-weight:600; letter-spacing:0.3px; }
+    .demo-banner span { color:var(--accent); }
+
+    /* ── HEADER ── */
+    .header { background:var(--white); border-bottom:1px solid var(--border); padding:0 32px; display:flex; align-items:center; justify-content:space-between; height:62px; position:sticky; top:0; z-index:200; }
+    .brand { font-size:19px; font-weight:900; color:var(--brand-dark); letter-spacing:-0.5px; }
+    .brand em { color:var(--accent); font-style:italic; }
+    .header-right { display:flex; align-items:center; gap:12px; }
+    .live-badge { display:flex; align-items:center; gap:5px; background:var(--green-bg); color:var(--green-text); padding:4px 11px; border-radius:20px; font-size:11px; font-weight:700; }
+    .live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+    .header-campaign { font-size:13px; color:var(--muted); }
+
+    /* ── HERO ── */
+    .hero { background:linear-gradient(135deg,#C07830 0%,#8B5520 60%,#5C3810 100%); padding:36px 32px 32px; color:#fff; }
+    .hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; opacity:.7; margin-bottom:6px; }
+    .hero-title { font-size:28px; font-weight:900; letter-spacing:-.5px; margin-bottom:4px; }
+    .hero-sub { font-size:14px; opacity:.8; margin-bottom:28px; }
+    .stats-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+    .stat-box { background:rgba(255,255,255,.15); border-radius:12px; padding:16px 18px; backdrop-filter:blur(4px); }
+    .stat-label { font-size:10px; text-transform:uppercase; letter-spacing:.6px; opacity:.7; font-weight:600; margin-bottom:5px; }
+    .stat-value { font-size:28px; font-weight:900; }
+    .stat-sub { font-size:11px; opacity:.7; margin-top:2px; }
+
+    /* ── TABS ── */
+    .tabs-bar { background:var(--white); border-bottom:1px solid var(--border); padding:0 32px; display:flex; gap:0; position:sticky; top:62px; z-index:190; }
+    .tab { padding:14px 20px; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:3px solid transparent; transition:color .15s,border-color .15s; white-space:nowrap; display:flex; align-items:center; gap:7px; user-select:none; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .tab-badge { background:var(--accent); color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:20px; }
+
+    /* ── PANELS ── */
+    .panel { display:none; }
+    .panel.active { display:block; }
+    .main { max-width:1200px; margin:0 auto; padding:32px; }
+
+    /* ── CARDS ── */
+    .card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; }
+    .card-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .card-title { font-size:15px; font-weight:800; }
+    .card-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+
+    /* ── SECTION HEADING ── */
+    .sec-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .sec-title { font-size:17px; font-weight:800; }
+    .sec-sub { font-size:13px; color:var(--muted); margin-top:2px; }
+
+    /* ── MAP ── */
+    #portal-map { height:420px; }
+    .map-legend { display:flex; gap:14px; padding:11px 18px; border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
+    .leg { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); }
+    .leg-dot { width:9px; height:9px; border-radius:50%; }
+
+    /* ── ZONES TAB ── */
+    .zones-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+    .zone-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+    .zone-top { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .zone-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .zone-name { font-size:15px; font-weight:700; }
+    .zone-meta { font-size:12px; color:var(--muted); }
+    .prog-bar { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin-bottom:6px; }
+    .prog-fill { height:100%; border-radius:3px; transition:width .5s; }
+    .prog-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+    .zone-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f3f4f6; }
+    .btn { padding:8px 14px; border-radius:9px; font-size:13px; font-weight:700; border:none; cursor:pointer; transition:opacity .15s; }
+    .btn:hover { opacity:.85; }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-ghost { background:#f3f4f6; color:var(--text2); }
+    .btn-danger { background:var(--red-bg); color:var(--red-text); }
+    .btn-sm { padding:6px 12px; font-size:12px; border-radius:8px; }
+
+    /* Add zone drawer */
+    .add-zone-box { background:var(--white); border:2px dashed var(--accent); border-radius:var(--radius); padding:28px; text-align:center; cursor:pointer; transition:background .15s; margin-bottom:24px; }
+    .add-zone-box:hover { background:#fdf6ee; }
+    .add-zone-form { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px; display:none; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+    .form-group { display:flex; flex-direction:column; gap:5px; }
+    .form-label { font-size:12px; font-weight:700; color:var(--text2); }
+    .form-input { border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none; }
+    .form-input:focus { border-color:var(--accent); }
+    #zone-draw-map { height:260px; border-radius:10px; overflow:hidden; margin-bottom:14px; border:1px solid var(--border); }
+
+    /* ── PHOTOS TAB ── */
+    .filter-bar { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+    .filter-select { border:1px solid var(--border); border-radius:9px; padding:8px 12px; font-size:13px; font-family:inherit; background:var(--white); outline:none; cursor:pointer; }
+    .filter-select:focus { border-color:var(--accent); }
+    .photos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
+    .photo-thumb { border-radius:12px; overflow:hidden; background:#e5e7eb; aspect-ratio:1; cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center; font-size:40px; border:2px solid transparent; transition:border-color .15s,transform .15s; }
+    .photo-thumb:hover { border-color:var(--accent); transform:scale(1.02); }
+    .photo-overlay { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.7)); padding:10px 10px 8px; }
+    .photo-addr { font-size:11px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .photo-time { font-size:10px; color:rgba(255,255,255,.7); }
+
+    /* ── MESSAGES TAB ── */
+    .msg-layout { display:grid; grid-template-columns:280px 1fr; gap:0; height:560px; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--white); }
+    .msg-sidebar { border-right:1px solid var(--border); overflow-y:auto; }
+    .msg-sidebar-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; font-weight:800; }
+    .thread-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; display:flex; gap:12px; align-items:flex-start; }
+    .thread-item:hover { background:var(--bg); }
+    .thread-item.active { background:#fdf6ee; border-left:3px solid var(--accent); }
+    .thread-avatar { width:40px; height:40px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; flex-shrink:0; }
+    .thread-name { font-size:14px; font-weight:700; }
+    .thread-preview { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
+    .thread-time { font-size:11px; color:var(--muted); margin-left:auto; flex-shrink:0; }
+    .thread-unread { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:5px; }
+    .msg-main { display:flex; flex-direction:column; }
+    .msg-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+    .msg-pro-name { font-size:15px; font-weight:800; }
+    .msg-pro-status { font-size:12px; color:var(--muted); }
+    .msg-body { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:10px; }
+    .msg-bubble-wrap { display:flex; flex-direction:column; }
+    .msg-bubble { max-width:72%; padding:10px 14px; border-radius:16px; font-size:14px; line-height:1.5; }
+    .msg-bubble.them { background:#f3f4f6; color:var(--text); border-radius:16px 16px 16px 4px; align-self:flex-start; }
+    .msg-bubble.me { background:var(--accent); color:#fff; border-radius:16px 16px 4px 16px; align-self:flex-end; }
+    .msg-time { font-size:11px; color:var(--muted); margin-top:3px; }
+    .msg-time.right { text-align:right; }
+    .msg-input-row { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:10px; }
+    .msg-input { flex:1; border:1px solid var(--border); border-radius:24px; padding:9px 16px; font-size:14px; font-family:inherit; outline:none; }
+    .msg-input:focus { border-color:var(--accent); }
+    .msg-send { width:38px; height:38px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:16px; flex-shrink:0; }
+
+    /* ── REPORTS TAB ── */
+    .reports-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:28px; }
+    .report-stat { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:22px; }
+    .report-stat-label { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .report-stat-value { font-size:32px; font-weight:900; color:var(--text); }
+    .report-stat-sub { font-size:13px; color:var(--muted); margin-top:4px; }
+    .chart-bar-wrap { display:flex; flex-direction:column; gap:10px; }
+    .chart-bar-row { display:flex; align-items:center; gap:12px; }
+    .chart-bar-label { font-size:13px; font-weight:600; width:160px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .chart-bar-track { flex:1; height:24px; background:#f3f4f6; border-radius:6px; overflow:hidden; }
+    .chart-bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:8px; font-size:12px; color:#fff; font-weight:700; transition:width .6s; }
+    .chart-bar-num { font-size:13px; font-weight:700; color:var(--text2); width:40px; text-align:right; flex-shrink:0; }
+    .export-box { background:linear-gradient(135deg,#C07830,#8B5520); border-radius:var(--radius); padding:28px 32px; color:#fff; display:flex; align-items:center; justify-content:space-between; }
+    .export-title { font-size:18px; font-weight:900; margin-bottom:6px; }
+    .export-sub { font-size:14px; opacity:.8; }
+    .btn-white { background:#fff; color:var(--accent); font-size:14px; font-weight:800; padding:12px 24px; border-radius:11px; border:none; cursor:pointer; }
+
+    /* ── LIGHTBOX ── */
+    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:2000; display:none; align-items:center; justify-content:center; }
+    .lightbox.open { display:flex; }
+    .lb-inner { display:flex; border-radius:16px; overflow:hidden; max-width:820px; width:90%; background:#1a1a1a; }
+    .lb-img-wrap { flex:1; background:#000; min-height:400px; display:flex; align-items:center; justify-content:center; font-size:80px; }
+    .lb-info { width:220px; flex-shrink:0; background:#111; padding:26px 20px; display:flex; flex-direction:column; gap:16px; }
+    .lb-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#6b7280; margin-bottom:4px; }
+    .lb-val { font-size:13px; color:#e5e7eb; }
+    .lb-close { position:absolute; top:14px; right:18px; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:17px; color:#fff; }
+
+    /* ── TOAST ── */
+    .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:var(--brand-dark); color:#fff; padding:12px 22px; border-radius:50px; font-size:13px; font-weight:600; z-index:3000; display:none; animation:toastIn .3s ease; white-space:nowrap; }
+    .toast.show { display:block; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+    /* ── MODAL ── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:#fff; border-radius:18px; padding:32px; max-width:440px; width:90%; }
+    .modal-title { font-size:18px; font-weight:900; margin-bottom:8px; }
+    .modal-body { font-size:14px; color:var(--text2); margin-bottom:24px; line-height:1.6; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+
+    /* ── EMPTY ── */
+    .empty { padding:48px; text-align:center; color:var(--muted); }
+    .empty-icon { font-size:40px; margin-bottom:12px; }
+
+    @media (max-width:768px) {
+      .stats-strip { grid-template-columns:1fr 1fr; }
+      .main { padding:20px 16px; }
+      .hero { padding:28px 16px; }
+      .header { padding:0 16px; }
+      .tabs-bar { padding:0 16px; overflow-x:auto; }
+      .reports-grid { grid-template-columns:1fr 1fr; }
+      .msg-layout { grid-template-columns:1fr; }
+      .msg-sidebar { display:none; }
+      .form-row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="demo-banner">⚡ <span>DEMO MODE</span> — Preview with sample data. No server required.</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand">Front<em>Porch</em></div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div> Live</div>
+    <div class="header-campaign">Summer Push</div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-label">Progress Report for Acme Roofing Co.</div>
+  <div class="hero-title">Summer Push</div>
+  <div class="hero-sub">Cedar Park, TX · Started Jun 1, 2026</div>
+  <div class="stats-strip">
+    <div class="stat-box">
+      <div class="stat-label">Homes Flyered</div>
+      <div class="stat-value" id="stat-homes">247</div>
+      <div class="stat-sub">with photo proof</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Zones</div>
+      <div class="stat-value">3</div>
+      <div class="stat-sub" id="stat-zones-sub">2 active · 1 complete</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Active Now</div>
+      <div class="stat-value">2</div>
+      <div class="stat-sub">Porch Pros</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Last Activity</div>
+      <div class="stat-value" style="font-size:20px;">4m</div>
+      <div class="stat-sub">ago</div>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <div class="tab active" onclick="switchTab('overview',this)">🏠 Overview</div>
+  <div class="tab" onclick="switchTab('zones',this)">📍 Zones</div>
+  <div class="tab" onclick="switchTab('photos',this)">📸 Photos</div>
+  <div class="tab" onclick="switchTab('messages',this)">💬 Messages <span class="tab-badge" id="msg-badge">2</span></div>
+  <div class="tab" onclick="switchTab('reports',this)">📊 Reports</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     OVERVIEW PANEL
+═══════════════════════════════════════════════ -->
+<div class="panel active" id="panel-overview">
+  <div class="main">
+
+    <div class="sec-head">
+      <div><div class="sec-title">Live Coverage Map</div><div class="sec-sub">Green pins = verified flyered homes</div></div>
+    </div>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="map-legend">
+        <span style="font-size:12px;font-weight:600;color:var(--text2);">Legend:</span>
+        <div class="leg"><div class="leg-dot" style="background:#22c55e;"></div> Flyered home</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--accent);opacity:.6;"></div> Zone area</div>
+      </div>
+      <div id="portal-map"></div>
+    </div>
+
+    <div class="sec-head">
+      <div><div class="sec-title">Recent Activity</div><div class="sec-sub">Last 10 homes logged</div></div>
+    </div>
+    <div class="card">
+      <div id="recent-feed"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     ZONES PANEL
+═══════════════════════════════════════════════ -->
+<div class="panel" id="panel-zones">
+  <div class="main">
+
+    <!-- Add zone trigger -->
+    <div class="add-zone-box" id="add-zone-trigger" onclick="toggleAddZone()">
+      <div style="font-size:28px;margin-bottom:8px;">➕</div>
+      <div style="font-size:15px;font-weight:800;">Request a New Zone</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">Click to draw coverage area on map and submit to your account manager</div>
+    </div>
+
+    <!-- Add zone form (hidden by default) -->
+    <div class="add-zone-form" id="add-zone-form">
+      <div style="font-size:16px;font-weight:800;margin-bottom:16px;">📍 New Zone Request</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Zone Name</label>
+          <input class="form-input" id="new-zone-name" placeholder="e.g. North Maple Estates" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Homes</label>
+          <input class="form-input" id="new-zone-target" placeholder="e.g. 150" type="number" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">Notes for your account manager (optional)</label>
+        <input class="form-input" id="new-zone-notes" placeholder="Any specific streets, avoid certain areas, etc." />
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Draw the area on the map</div>
+      <div id="zone-draw-map"></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Click on the map to place polygon points. Click the first point to close the shape.</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="submitZoneRequest()">📤 Submit Request</button>
+        <button class="btn btn-ghost" onclick="toggleAddZone()">Cancel</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearDrawing()" style="margin-left:auto;">🗑 Clear Drawing</button>
+      </div>
+    </div>
+
+    <!-- Active zones -->
+    <div class="sec-head">
+      <div><div class="sec-title">Your Zones</div><div class="sec-sub">3 zones · 247 of 300 homes completed</div></div>
+    </div>
+    <div class="zones-grid" id="zones-grid"></div>
+
+    <!-- Zone history (12 months) -->
+    <div class="sec-head" style="margin-top:8px;">
+      <div>
+        <div class="sec-title">Zone History</div>
+        <div class="sec-sub">Completed zones are kept for 12 months automatically · delete any time</div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="zone-history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PHOTOS PANEL
+═══════════════════════════════════════════════ -->
+<div class="panel" id="panel-photos">
+  <div class="main">
+
+    <div class="sec-head">
+      <div><div class="sec-title">Photo Proof Gallery</div><div class="sec-sub">247 verified homes · click any photo to enlarge</div></div>
+      <button class="btn btn-primary btn-sm" onclick="toast('📥 Downloading all photos as ZIP…')">⬇ Download All</button>
+    </div>
+
+    <div class="filter-bar">
+      <select class="filter-select" onchange="filterPhotos()" id="filter-zone">
+        <option value="">All Zones</option>
+        <option>Zone A – Maple St</option>
+        <option>Zone B – Oak Ave</option>
+        <option>Zone C – Cedar Blvd</option>
+      </select>
+      <select class="filter-select" onchange="filterPhotos()" id="filter-pro">
+        <option value="">All Porch Pros</option>
+        <option>Marcus T.</option>
+        <option>Sara K.</option>
+        <option>Jordan M.</option>
+      </select>
+      <select class="filter-select" onchange="filterPhotos()" id="filter-date">
+        <option value="">All Dates</option>
+        <option>Today</option>
+        <option>Yesterday</option>
+        <option>This Week</option>
+      </select>
+      <div style="font-size:13px;color:var(--muted);margin-left:auto;" id="photo-count-label">Showing 247 photos</div>
+    </div>
+
+    <div class="photos-grid" id="photos-grid"></div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MESSAGES PANEL
+═══════════════════════════════════════════════ -->
+<div class="panel" id="panel-messages">
+  <div class="main">
+    <div class="sec-head" style="margin-bottom:20px;">
+      <div><div class="sec-title">Messages</div><div class="sec-sub">Chat with your Porch Pros</div></div>
+    </div>
+    <div class="msg-layout card" style="margin-bottom:0;">
+
+      <!-- sidebar -->
+      <div class="msg-sidebar">
+        <div class="msg-sidebar-header">Conversations</div>
+        <div id="thread-list"></div>
+      </div>
+
+      <!-- main chat -->
+      <div class="msg-main">
+        <div class="msg-header">
+          <div class="thread-avatar" id="chat-avatar">M</div>
+          <div>
+            <div class="msg-pro-name" id="chat-name">Marcus T.</div>
+            <div class="msg-pro-status" id="chat-status">🟢 Active · Zone A – Maple St</div>
+          </div>
+        </div>
+        <div class="msg-body" id="msg-body"></div>
+        <div class="msg-input-row">
+          <input class="msg-input" id="msg-input" placeholder="Message your Porch Pro…" onkeydown="sendMsg(event)" />
+          <button class="msg-send" onclick="sendMsg({key:'Enter'})">↑</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     REPORTS PANEL
+═══════════════════════════════════════════════ -->
+<div class="panel" id="panel-reports">
+  <div class="main">
+
+    <div class="sec-head" style="margin-bottom:20px;">
+      <div><div class="sec-title">Campaign Reports</div><div class="sec-sub">Performance at a glance</div></div>
+    </div>
+
+    <!-- Top-line stats: current campaign -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">This Campaign</div>
+    <div class="reports-grid" style="margin-bottom:28px;">
+      <div class="report-stat">
+        <div class="report-stat-label">Total Homes Reached</div>
+        <div class="report-stat-value">247</div>
+        <div class="report-stat-sub">of 300 target (82%)</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Avg. Homes / Hour</div>
+        <div class="report-stat-value">14.2</div>
+        <div class="report-stat-sub">across all Porch Pros</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Avg. Homes / Day</div>
+        <div class="report-stat-value">61.8</div>
+        <div class="report-stat-sub">over 4 active days</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Photo Proof Rate</div>
+        <div class="report-stat-value">100%</div>
+        <div class="report-stat-sub">every home verified</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Zones Complete</div>
+        <div class="report-stat-value">1 / 3</div>
+        <div class="report-stat-sub">2 zones still active</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Est. Completion</div>
+        <div class="report-stat-value">Jun 5</div>
+        <div class="report-stat-sub">~53 homes remaining</div>
+      </div>
+    </div>
+
+    <!-- 12-month rollup -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;">Last 12 Months — All Campaigns</div>
+    <div class="reports-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:28px;">
+      <div class="report-stat">
+        <div class="report-stat-label">Total Homes Flyered</div>
+        <div class="report-stat-value">4,812</div>
+        <div class="report-stat-sub">Jun 2025 – Jun 2026</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Campaigns Run</div>
+        <div class="report-stat-value">7</div>
+        <div class="report-stat-sub">6 complete · 1 active</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Avg. Homes / Hour</div>
+        <div class="report-stat-value">13.6</div>
+        <div class="report-stat-sub">12-month average</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-label">Best Month</div>
+        <div class="report-stat-value">March</div>
+        <div class="report-stat-sub">892 homes flyered</div>
+      </div>
+    </div>
+
+    <!-- Porch Pro performance -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Porch Pro Performance</div>
+          <div class="card-sub">Homes flyered &amp; avg per hour · this campaign</div>
+        </div>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px;" id="pro-chart"></div>
+    </div>
+
+    <!-- Zone breakdown chart -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Homes by Zone</div>
+          <div class="card-sub">Distribution across all zones</div>
+        </div>
+      </div>
+      <div style="padding:20px;">
+        <div class="chart-bar-wrap" id="zone-chart"></div>
+      </div>
+    </div>
+
+    <!-- Daily progress chart -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Daily Progress</div>
+          <div class="card-sub">Homes flyered per day · this campaign</div>
+        </div>
+      </div>
+      <div style="padding:20px;">
+        <div class="chart-bar-wrap" id="daily-chart"></div>
+      </div>
+    </div>
+
+    <!-- Monthly 12-month chart -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Monthly Homes Flyered</div>
+          <div class="card-sub">Last 12 months across all campaigns</div>
+        </div>
+      </div>
+      <div style="padding:20px;">
+        <div class="chart-bar-wrap" id="monthly-chart"></div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="export-box">
+      <div>
+        <div class="export-title">📄 Download Proof Report</div>
+        <div class="export-sub">Full PDF with all 247 photos, map, and stats — ready to share</div>
+      </div>
+      <button class="btn-white" onclick="downloadPDF()">📄 Download PDF Report</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <div class="lb-close" onclick="closeLightbox()">✕</div>
+  <div class="lb-inner">
+    <div class="lb-img-wrap" id="lb-img">📬</div>
+    <div class="lb-info">
+      <div><div class="lb-label">Address</div><div class="lb-val" id="lb-address">—</div></div>
+      <div><div class="lb-label">Porch Pro</div><div class="lb-val" id="lb-pro">—</div></div>
+      <div><div class="lb-label">Zone</div><div class="lb-val" id="lb-zone">—</div></div>
+      <div><div class="lb-label">Time</div><div class="lb-val" id="lb-time">—</div></div>
+      <div><a id="lb-sv" href="#" target="_blank" style="font-size:13px;color:#60a5fa;text-decoration:none;">↗ Street View</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE ZONE MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title">🗑 Delete Zone?</div>
+    <div class="modal-body" id="delete-modal-body">Are you sure you want to delete this zone? This will remove it from the campaign. Any homes already logged will be retained.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Yes, Delete Zone</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+// MOCK DATA
+// ════════════════════════════════════════════════
+
+const ZONES = [
+  { id:'z1', name:'Zone A – Maple St',    color:'#22c55e', homes:98,  target:100, status:'complete',  canvasser:'Marcus T.',  last: Date.now()/1000-240,   coords:[[30.520,-97.700],[30.525,-97.700],[30.525,-97.690],[30.520,-97.690]] },
+  { id:'z2', name:'Zone B – Oak Ave',     color:'#f59e0b', homes:87,  target:120, status:'active',    canvasser:'Sara K.',    last: Date.now()/1000-900,   coords:[[30.512,-97.705],[30.518,-97.705],[30.518,-97.695],[30.512,-97.695]] },
+  { id:'z3', name:'Zone C – Cedar Blvd', color:'#38bdf8', homes:62,  target:80,  status:'active',    canvasser:'Jordan M.',  last: Date.now()/1000-1800,  coords:[[30.505,-97.695],[30.511,-97.695],[30.511,-97.685],[30.505,-97.685]] },
+];
+
+const STREETS = ['124 Maple St','312 Oak Ave','87 Cedar Blvd','445 Elm Ct','29 Birch Ln','530 Willow Way','118 Pine Dr','202 Aspen Pl','67 Walnut Rd','399 Sycamore St','155 Poplar Ave','244 Magnolia Blvd','78 Dogwood Ct','511 Redwood Dr','33 Cypress Ln','190 Hickory Run','76 Chestnut Ct','321 Pecan Dr','88 Laurel Ln','410 Hawthorn Way'];
+const PROS = ['Marcus T.','Sara K.','Jordan M.'];
+const ZONE_NAMES = ZONES.map(z => z.name);
+const EMOJIS = ['📬','📮','🏠','📬','📬','📮','🏡','📬'];
+
+const HOMES = Array.from({length:40}, (_,i) => ({
+  id:'h'+i,
+  address: STREETS[i % STREETS.length],
+  pro: PROS[i % PROS.length],
+  zone: ZONE_NAMES[i % ZONE_NAMES.length],
+  lat: 30.505 + Math.random()*0.022,
+  lng: -97.705 + Math.random()*0.022,
+  ts: Math.floor(Date.now()/1000) - i*380,
+  emoji: EMOJIS[i % EMOJIS.length],
+}));
+
+const THREADS = [
+  { id:'t1', pro:'Marcus T.', initial:'M', zone:'Zone A – Maple St', active:true,
+    msgs:[
+      {from:'them', text:"Hey! Just finished the north side of Maple St. About 40 homes done ✅", ts: Date.now()/1000-720},
+      {from:'me',   text:"Great work! Are you hitting the cul-de-sacs too?",                      ts: Date.now()/1000-480},
+      {from:'them', text:"Yep, getting all of them! Moving to Oak Ave next 🚶",                   ts: Date.now()/1000-300},
+      {from:'them', text:"Almost done with Zone A — should be finished by 3pm",                   ts: Date.now()/1000-60},
+    ]},
+  { id:'t2', pro:'Sara K.', initial:'S', zone:'Zone B – Oak Ave', active:true,
+    msgs:[
+      {from:'them', text:"Starting on Oak Ave now, looks like about 120 homes here",  ts: Date.now()/1000-3600},
+      {from:'me',   text:"Sounds good, let me know if you need anything!",            ts: Date.now()/1000-3300},
+    ]},
+  { id:'t3', pro:'Jordan M.', initial:'J', zone:'Zone C – Cedar Blvd', active:false,
+    msgs:[
+      {from:'them', text:"Done with my shift, logged 62 homes today",  ts: Date.now()/1000-7200},
+      {from:'me',   text:"Great job Jordan, see you tomorrow!",         ts: Date.now()/1000-7000},
+    ]},
+];
+
+// ════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════
+
+let activeTab = 'overview';
+
+function switchTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  el.classList.add('active');
+  activeTab = name;
+  if (name === 'zones' && !window._zonesRendered) { renderZones(); renderZoneHistory(); window._zonesRendered = true; }
+  if (name === 'photos' && !window._photosRendered) { renderPhotos(HOMES); window._photosRendered = true; }
+  if (name === 'messages' && !window._msgsRendered) { renderThreads(); window._msgsRendered = true; }
+  if (name === 'reports' && !window._reportsRendered) { renderReports(); window._reportsRendered = true; }
+}
+
+// ════════════════════════════════════════════════
+// OVERVIEW
+// ════════════════════════════════════════════════
+
+function initMap() {
+  const map = L.map('portal-map').setView([30.513,-97.697], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
+  setTimeout(() => map.invalidateSize(), 100);
+
+  ZONES.forEach(z => {
+    L.polygon(z.coords,{color:z.color,fillColor:z.color,fillOpacity:.15,weight:2.5,dashArray:'6,4'})
+      .bindTooltip(`<strong>${z.name}</strong><br>${z.homes} homes flyered`,{sticky:true}).addTo(map);
+  });
+  HOMES.slice(0,20).forEach(h => {
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:26px;height:26px;border-radius:50%;border:3px solid #22c55e;background:#22c55e;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:12px;">📬</div>`,
+      iconSize:[26,26],iconAnchor:[13,13]
+    });
+    L.marker([h.lat,h.lng],{icon}).bindPopup(`<strong>${h.address}</strong><br>${h.pro}`).addTo(map);
+  });
+}
+
+function renderRecentFeed() {
+  const el = document.getElementById('recent-feed');
+  el.innerHTML = HOMES.slice(0,8).map(h => {
+    const t = new Date(h.ts*1000).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:9px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${h.emoji}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.address}</div>
+        <div style="font-size:12px;color:var(--muted);">${h.pro} · ${h.zone} · ${t}</div>
+      </div>
+      <div style="background:var(--green-bg);color:var(--green-text);font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;flex-shrink:0;">✓ Verified</div>
+    </div>`;
+  }).join('')+'<div style="padding:12px 18px;text-align:center;"><a href="#" onclick="switchTab(\'photos\',document.querySelectorAll(\'.tab\')[2]);return false;" style="font-size:13px;color:var(--accent);font-weight:700;text-decoration:none;">View all 247 photos →</a></div>';
+}
+
+// ════════════════════════════════════════════════
+// ZONES
+// ════════════════════════════════════════════════
+
+let pendingDelete = null;
+
+function renderZones() {
+  const grid = document.getElementById('zones-grid');
+  grid.innerHTML = ZONES.map(z => {
+    const pct = Math.round((z.homes/z.target)*100);
+    const isComplete = z.status === 'complete';
+    const canConfirm = !isComplete && pct >= 85;
+    return `
+    <div class="zone-card" id="zc-${z.id}">
+      <div class="zone-top">
+        <div class="zone-dot" style="background:${z.color};"></div>
+        <div style="flex:1;">
+          <div class="zone-name">${z.name}</div>
+          <div class="zone-meta">Last: ${relTime(z.last)}</div>
+        </div>
+        ${isComplete ? '<div style="font-size:20px;">🏁</div>' : ''}
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${z.color};"></div></div>
+      <div class="prog-labels">
+        <span>${z.homes} of ${z.target} homes (${pct}%)</span>
+        <span style="color:${isComplete?'#15803d':z.status==='active'?'#15803d':'#9ca3af'};font-weight:700;">
+          ${isComplete ? '✅ Complete' : z.status === 'active' ? '🟢 Active · '+z.canvasser : '⚪ Unassigned'}
+        </span>
+      </div>
+      <div class="zone-actions">
+        ${canConfirm ? `<button class="btn btn-primary btn-sm" onclick="confirmZone('${z.id}','${z.name}')">✅ Confirm Complete</button>` : ''}
+        ${isComplete ? `<button class="btn btn-ghost btn-sm" onclick="toast('📊 Opening zone report…')">📊 Zone Report</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="toast('🗺 Zooming to ${z.name} on map')">🗺 View Map</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="openDeleteModal('${z.id}','${z.name}')">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function confirmZone(id, name) {
+  const z = ZONES.find(x => x.id === id);
+  if (z) { z.status = 'complete'; renderZones(); toast('✅ Zone confirmed complete!'); }
+}
+
+function openDeleteModal(id, name) {
+  pendingDelete = id;
+  document.getElementById('delete-modal-body').textContent = `Are you sure you want to delete "${name}"? This will remove it from the campaign. Any homes already logged will be retained.`;
+  document.getElementById('delete-modal').classList.add('open');
+}
+function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('open'); pendingDelete = null; }
+function confirmDelete() {
+  if (!pendingDelete) return;
+  const i = ZONES.findIndex(z => z.id === pendingDelete);
+  if (i !== -1) ZONES.splice(i, 1);
+  window._zonesRendered = false;
+  renderZones();
+  closeDeleteModal();
+  toast('🗑 Zone deleted');
+}
+
+// Add-zone form
+let drawMap = null, drawPoints = [], drawPolyline = null;
+
+function toggleAddZone() {
+  const form = document.getElementById('add-zone-form');
+  const trigger = document.getElementById('add-zone-trigger');
+  const open = form.style.display === 'block';
+  form.style.display = open ? 'none' : 'block';
+  trigger.style.display = open ? 'flex' : 'none';
+  if (!open && !drawMap) initDrawMap();
+}
+
+function initDrawMap() {
+  drawMap = L.map('zone-draw-map').setView([30.513,-97.697], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(drawMap);
+  setTimeout(() => drawMap.invalidateSize(), 100);
+
+  // Show existing zones faintly
+  ZONES.forEach(z => L.polygon(z.coords,{color:z.color,fillColor:z.color,fillOpacity:.1,weight:1.5,dashArray:'4,4'}).addTo(drawMap));
+
+  drawMap.on('click', e => {
+    drawPoints.push([e.latlng.lat, e.latlng.lng]);
+    L.circleMarker([e.latlng.lat, e.latlng.lng],{radius:6,color:'#C07830',fillColor:'#C07830',fillOpacity:1}).addTo(drawMap);
+    if (drawPolyline) drawMap.removeLayer(drawPolyline);
+    if (drawPoints.length > 1) {
+      drawPolyline = L.polygon(drawPoints,{color:'#C07830',fillColor:'#C07830',fillOpacity:.2,weight:2}).addTo(drawMap);
+    }
+  });
+}
+
+function clearDrawing() {
+  drawPoints = [];
+  if (drawMap) { drawMap.eachLayer(l => { if (l instanceof L.Polygon || l instanceof L.CircleMarker) drawMap.removeLayer(l); }); }
+  // Re-add zone outlines
+  if (drawMap) ZONES.forEach(z => L.polygon(z.coords,{color:z.color,fillColor:z.color,fillOpacity:.1,weight:1.5,dashArray:'4,4'}).addTo(drawMap));
+  drawPolyline = null;
+}
+
+function submitZoneRequest() {
+  const name = document.getElementById('new-zone-name').value.trim();
+  if (!name) { toast('⚠️ Please enter a zone name'); return; }
+  // Add to mock data
+  const colors = ['#a855f7','#ec4899','#14b8a6','#f97316'];
+  ZONES.push({
+    id:'z'+Date.now(), name, color: colors[ZONES.length % colors.length],
+    homes:0, target: parseInt(document.getElementById('new-zone-target').value)||100,
+    status:'pending', canvasser:null, last: Date.now()/1000,
+    coords: drawPoints.length >= 3 ? drawPoints : [[30.515,-97.698],[30.520,-97.698],[30.520,-97.692],[30.515,-97.692]],
+  });
+  toggleAddZone();
+  document.getElementById('new-zone-name').value = '';
+  document.getElementById('new-zone-target').value = '';
+  document.getElementById('new-zone-notes').value = '';
+  drawPoints = [];
+  window._zonesRendered = false;
+  renderZones();
+  toast('📤 Zone request submitted! Your account manager will confirm shortly.');
+}
+
+// ════════════════════════════════════════════════
+// PHOTOS
+// ════════════════════════════════════════════════
+
+function renderPhotos(homes) {
+  const grid = document.getElementById('photos-grid');
+  document.getElementById('photo-count-label').textContent = `Showing ${homes.length} photos`;
+  grid.innerHTML = homes.map((h,i) => `
+    <div class="photo-thumb" onclick="openLightbox(${i})" title="${h.address}">
+      <div style="font-size:48px;">${h.emoji}</div>
+      <div class="photo-overlay">
+        <div class="photo-addr">${h.address}</div>
+        <div class="photo-time">${h.pro} · ${relTimeShort(h.ts)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function filterPhotos() {
+  const zone = document.getElementById('filter-zone').value;
+  const pro  = document.getElementById('filter-pro').value;
+  let filtered = HOMES;
+  if (zone) filtered = filtered.filter(h => h.zone === zone);
+  if (pro)  filtered = filtered.filter(h => h.pro === pro);
+  renderPhotos(filtered);
+}
+
+let lbHomes = HOMES;
+function openLightbox(i) {
+  const h = lbHomes[i];
+  if (!h) return;
+  document.getElementById('lb-address').textContent = h.address;
+  document.getElementById('lb-pro').textContent = h.pro;
+  document.getElementById('lb-zone').textContent = h.zone;
+  document.getElementById('lb-time').textContent = new Date(h.ts*1000).toLocaleString([],{dateStyle:'medium',timeStyle:'short'});
+  document.getElementById('lb-sv').href = `https://www.google.com/maps?q=&layer=c&cbll=${h.lat},${h.lng}`;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
+
+// ════════════════════════════════════════════════
+// MESSAGES
+// ════════════════════════════════════════════════
+
+let activeThread = 0;
+
+function renderThreads() {
+  const list = document.getElementById('thread-list');
+  list.innerHTML = THREADS.map((t,i) => {
+    const last = t.msgs[t.msgs.length-1];
+    return `<div class="thread-item ${i===activeThread?'active':''}" onclick="selectThread(${i})">
+      <div class="thread-avatar" style="background:${i===0?'#C07830':i===1?'#22c55e':'#3b82f6'};">${t.initial}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="thread-name">${t.pro}</div>
+          <div class="thread-time">${relTimeShort(last.ts)}</div>
+        </div>
+        <div class="thread-preview">${last.text}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${t.zone}</div>
+      </div>
+      ${i < 2 ? '<div class="thread-unread"></div>' : ''}
+    </div>`;
+  }).join('');
+  renderMessages(activeThread);
+}
+
+function selectThread(i) {
+  activeThread = i;
+  document.querySelectorAll('.thread-item').forEach((el,j) => el.classList.toggle('active', j===i));
+  const t = THREADS[i];
+  document.getElementById('chat-name').textContent = t.pro;
+  document.getElementById('chat-avatar').textContent = t.initial;
+  document.getElementById('chat-status').textContent = t.active ? '🟢 Active · '+t.zone : '🔴 No longer active';
+  renderMessages(i);
+  // clear badge
+  if (i < 2) document.getElementById('msg-badge').textContent = Math.max(0, parseInt(document.getElementById('msg-badge').textContent||0) - 1) || '';
+}
+
+function renderMessages(i) {
+  const t = THREADS[i];
+  const el = document.getElementById('msg-body');
+  el.innerHTML = t.msgs.map(m => `
+    <div class="msg-bubble-wrap">
+      <div class="msg-bubble ${m.from==='me'?'me':'them'}">${m.text}</div>
+      <div class="msg-time ${m.from==='me'?'right':''}">${m.from==='me'?'You':t.pro} · ${relTimeShort(m.ts)}</div>
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendMsg(e) {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  THREADS[activeThread].msgs.push({ from:'me', text, ts: Date.now()/1000 });
+  renderMessages(activeThread);
+}
+
+// ════════════════════════════════════════════════
+// REPORTS
+// ════════════════════════════════════════════════
+
+function renderReports() {
+  // Porch Pro performance
+  const proData = [
+    {name:'Marcus T.', homes:98,  hph:15.4, color:'#C07830'},
+    {name:'Sara K.',   homes:87,  hph:13.8, color:'#22c55e'},
+    {name:'Jordan M.', homes:62,  hph:12.1, color:'#38bdf8'},
+  ];
+  const maxP = Math.max(...proData.map(p => p.homes));
+  document.getElementById('pro-chart').innerHTML = proData.map(p => `
+    <div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <div style="font-size:14px;font-weight:700;">${p.name}</div>
+        <div style="font-size:13px;color:var(--muted);">${p.homes} homes &nbsp;·&nbsp; <strong style="color:var(--text);">${p.hph}/hr</strong></div>
+      </div>
+      <div class="chart-bar-track" style="height:20px;">
+        <div class="chart-bar-fill" style="width:${(p.homes/maxP)*100}%;background:${p.color};font-size:11px;">${p.homes}</div>
+      </div>
+    </div>`).join('');
+
+  // Zone bar chart
+  const zoneChart = document.getElementById('zone-chart');
+  const maxZ = Math.max(...ZONES.map(z => z.homes));
+  zoneChart.innerHTML = ZONES.map(z => `
+    <div class="chart-bar-row">
+      <div class="chart-bar-label">${z.name}</div>
+      <div class="chart-bar-track">
+        <div class="chart-bar-fill" style="width:${(z.homes/maxZ)*100}%;background:${z.color};">${z.homes}</div>
+      </div>
+      <div class="chart-bar-num">${z.homes}</div>
+    </div>`).join('');
+
+  // Daily bar chart
+  const days = [
+    {label:'Jun 1', count:48},{label:'Jun 2', count:72},{label:'Jun 3', count:65},{label:'Jun 4 (today)', count:62},
+  ];
+  const dailyChart = document.getElementById('daily-chart');
+  const maxD = Math.max(...days.map(d => d.count));
+  dailyChart.innerHTML = days.map(d => `
+    <div class="chart-bar-row">
+      <div class="chart-bar-label">${d.label}</div>
+      <div class="chart-bar-track">
+        <div class="chart-bar-fill" style="width:${(d.count/maxD)*100}%;background:#C07830;">${d.count}</div>
+      </div>
+      <div class="chart-bar-num">${d.count}</div>
+    </div>`).join('');
+
+  // 12-month chart
+  const months = [
+    {m:'Jun \'25',n:310},{m:'Jul',n:480},{m:'Aug',n:420},{m:'Sep',n:395},
+    {m:'Oct',n:512},{m:'Nov',n:280},{m:'Dec',n:190},{m:'Jan \'26',n:440},
+    {m:'Feb',n:520},{m:'Mar',n:892},{m:'Apr',n:620},{m:'May',n:506},{m:'Jun',n:247},
+  ];
+  const maxM = Math.max(...months.map(m => m.n));
+  document.getElementById('monthly-chart').innerHTML = months.map(m => `
+    <div class="chart-bar-row">
+      <div class="chart-bar-label" style="width:70px;">${m.m}</div>
+      <div class="chart-bar-track">
+        <div class="chart-bar-fill" style="width:${(m.n/maxM)*100}%;background:${m.m.includes("Jun '2")||m.m==='Jun'?'#C07830':'#94a3b8'};">${m.n}</div>
+      </div>
+      <div class="chart-bar-num">${m.n}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+// ZONE HISTORY
+// ════════════════════════════════════════════════
+
+// Zones are auto-retained for 12 months from completion date.
+// expires_at = completed_at + 365 days. Shown until expiry unless manually deleted.
+
+const ZONE_HISTORY = [
+  { id:'zh1', name:'Spring Blitz – Oak District',   campaign:'Spring Awareness', homes:142, completed:'Mar 15, 2026', canvasser:'Marcus T.',  expires:'Mar 15, 2027', color:'#a855f7' },
+  { id:'zh2', name:'Winter Route – Cedar Park N.',  campaign:'Winter Push',      homes:88,  completed:'Dec 10, 2025', canvasser:'Sara K.',    expires:'Dec 10, 2026', color:'#38bdf8' },
+  { id:'zh3', name:'Fall Coverage – Maple Heights', campaign:'Fall Campaign',    homes:211, completed:'Oct 22, 2025', canvasser:'Jordan M.',  expires:'Oct 22, 2026', color:'#f59e0b' },
+  { id:'zh4', name:'Summer Zone A – Elm St',        campaign:'Summer 2025',      homes:178, completed:'Aug 5, 2025',  canvasser:'Marcus T.',  expires:'Aug 5, 2026',  color:'#22c55e' },
+];
+
+let historyList = [...ZONE_HISTORY];
+
+function renderZoneHistory() {
+  const el = document.getElementById('zone-history-list');
+  if (!historyList.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📁</div>No zone history yet.</div>';
+    return;
+  }
+  el.innerHTML = historyList.map(z => `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);" id="zh-${z.id}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${z.color};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;">${z.name}</div>
+        <div style="font-size:12px;color:var(--muted);">${z.campaign} · ${z.homes} homes · ${z.canvasser}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-right:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--green-text);">✅ Completed ${z.completed}</div>
+        <div style="font-size:11px;color:var(--muted);">Auto-deletes ${z.expires}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="toast('📊 Loading zone report…')">Report</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteHistory('${z.id}','${z.name}')">🗑</button>
+    </div>`).join('');
+}
+
+function deleteHistory(id, name) {
+  if (!confirm(`Delete "${name}" from zone history? This cannot be undone.`)) return;
+  historyList = historyList.filter(z => z.id !== id);
+  renderZoneHistory();
+  toast('🗑 Zone history entry deleted');
+}
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+
+function downloadPDF() {
+  if (!token) return;
+  // Opens the server-rendered proof report in a new tab — user can hit Ctrl+P / Save as PDF
+  window.open(`${API}/api/customer/${token}/pdf`, '_blank');
+}
+
+function relTime(ts) {
+  const d = Math.floor(Date.now()/1000) - ts;
+  if (d < 60) return 'just now';
+  if (d < 3600) return `${Math.floor(d/60)}m ago`;
+  if (d < 86400) return `${Math.floor(d/3600)}h ago`;
+  return `${Math.floor(d/86400)}d ago`;
+}
+function relTimeShort(ts) {
+  const d = Math.floor(Date.now()/1000) - ts;
+  if (d < 60) return 'now';
+  if (d < 3600) return `${Math.floor(d/60)}m`;
+  if (d < 86400) return `${Math.floor(d/3600)}h`;
+  return `${Math.floor(d/86400)}d`;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+
+initMap();
+renderRecentFeed();
+
+// Simulated live notification
+setTimeout(() => toast('📬 New home flyered! Zone B – Oak Ave · 88 total'), 2500);
+</script>
+</body>
+</html>

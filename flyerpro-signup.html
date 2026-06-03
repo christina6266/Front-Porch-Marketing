@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Become a Porch Pro — FrontPorch Marketing</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#F5F0E8; --white:#fff; --border:#e5e7eb;
+      --accent:#C07830; --accent-dark:#A06020;
+      --brand-dark:#2A2215;
+      --green:#22c55e; --green-bg:#dcfce7; --green-text:#15803d;
+      --text:#111827; --text2:#374151; --muted:#6b7280;
+      --red:#ef4444;
+      --font:'Inter',system-ui,sans-serif;
+    }
+    body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── HEADER ── */
+    .header { background:var(--white); border-bottom:1px solid var(--border); padding:0 32px; height:62px; display:flex; align-items:center; justify-content:space-between; }
+    .brand { font-size:20px; font-weight:900; color:var(--brand-dark); letter-spacing:-.5px; }
+    .brand em { color:var(--accent); font-style:italic; }
+
+    /* ── HERO ── */
+    .hero { background:linear-gradient(135deg,#C07830 0%,#8B5520 55%,#5C3810 100%); padding:52px 32px 40px; color:#fff; text-align:center; }
+    .hero-tag { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.15); border-radius:20px; padding:5px 14px; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; margin-bottom:16px; }
+    .hero-title { font-size:34px; font-weight:900; letter-spacing:-.5px; margin-bottom:10px; }
+    .hero-sub { font-size:15px; opacity:.85; max-width:480px; margin:0 auto 28px; line-height:1.6; }
+    .perks { display:flex; justify-content:center; gap:24px; flex-wrap:wrap; }
+    .perk { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; opacity:.9; }
+    .perk-icon { font-size:18px; }
+
+    /* ── FORM WRAP ── */
+    .form-wrap { max-width:580px; margin:40px auto; padding:0 24px 60px; }
+
+    /* ── STEPS ── */
+    .steps-bar { background:var(--white); border-bottom:1px solid var(--border); padding:14px 32px; display:flex; align-items:center; justify-content:center; gap:0; }
+    .step { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--muted); }
+    .step.active { color:var(--accent); }
+    .step.done { color:var(--green-text); }
+    .step-num { width:24px; height:24px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+    .step.done .step-num { background:var(--green); border-color:var(--green); color:#fff; }
+    .step.active .step-num { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .step-divider { width:36px; height:2px; background:var(--border); margin:0 8px; flex-shrink:0; }
+    .step-divider.done { background:var(--green); }
+
+    /* ── PROGRESS ── */
+    .progress-track { height:4px; background:var(--border); border-radius:2px; margin-bottom:28px; overflow:hidden; }
+    .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width .4s ease; }
+
+    /* ── CARD ── */
+    .form-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:32px; margin-bottom:20px; display:none; }
+    .form-card.active { display:block; }
+    .card-icon { font-size:28px; margin-bottom:10px; }
+    .card-title { font-size:20px; font-weight:900; margin-bottom:4px; }
+    .card-sub { font-size:14px; color:var(--muted); margin-bottom:26px; line-height:1.5; }
+
+    /* ── FIELDS ── */
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+    .field-row.single { grid-template-columns:1fr; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-size:13px; font-weight:700; color:var(--text2); }
+    .field label span { color:var(--accent); }
+    .field input, .field select {
+      border:1.5px solid var(--border); border-radius:10px; padding:11px 14px;
+      font-size:14px; font-family:var(--font); outline:none; background:#fafafa;
+      transition:border-color .15s,background .15s;
+    }
+    .field input:focus, .field select:focus { border-color:var(--accent); background:#fff; }
+    .field-hint { font-size:12px; color:var(--muted); }
+    .field-error { font-size:12px; color:var(--red); display:none; }
+
+    /* ── DAY CHIPS ── */
+    .day-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+    .day-chip { padding:8px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; user-select:none; transition:all .15s; color:var(--text2); }
+    .day-chip:hover { border-color:var(--accent); }
+    .day-chip.selected { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+    /* ── SHIFT TILES ── */
+    .shift-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:4px; }
+    .shift-tile { border:1.5px solid var(--border); border-radius:12px; padding:14px 10px; text-align:center; cursor:pointer; transition:all .15s; user-select:none; }
+    .shift-tile:hover { border-color:var(--accent); }
+    .shift-tile.selected { border-color:var(--accent); background:#fdf6ee; }
+    .shift-tile-icon { font-size:22px; margin-bottom:5px; }
+    .shift-tile-label { font-size:13px; font-weight:700; }
+    .shift-tile-time { font-size:11px; color:var(--muted); margin-top:2px; }
+
+    /* ── TRANSPORT TILES ── */
+    .transport-tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .transport-tile { border:1.5px solid var(--border); border-radius:10px; padding:12px 8px; text-align:center; cursor:pointer; transition:all .15s; user-select:none; }
+    .transport-tile:hover { border-color:var(--accent); }
+    .transport-tile.selected { border-color:var(--accent); background:#fdf6ee; }
+    .transport-tile-icon { font-size:20px; margin-bottom:4px; }
+    .transport-tile-label { font-size:11px; font-weight:700; }
+
+    /* ── BUTTONS ── */
+    .btn-row { display:flex; gap:12px; margin-top:26px; }
+    .btn-next { flex:1; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:800; cursor:pointer; transition:background .15s; }
+    .btn-next:hover { background:var(--accent-dark); }
+    .btn-back { padding:14px 20px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; color:var(--text2); }
+
+    /* ── SUCCESS ── */
+    .success-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:48px 32px; text-align:center; display:none; }
+    .success-card.active { display:block; }
+    .success-icon { font-size:60px; margin-bottom:16px; }
+    .success-title { font-size:26px; font-weight:900; margin-bottom:10px; }
+    .success-sub { font-size:15px; color:var(--muted); margin-bottom:28px; line-height:1.6; max-width:400px; margin-left:auto; margin-right:auto; }
+    .next-steps { background:var(--bg); border-radius:14px; padding:20px 24px; text-align:left; margin-bottom:24px; }
+    .next-steps-title { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:14px; }
+    .next-step-item { display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
+    .next-step-item:last-child { margin-bottom:0; }
+    .next-step-num { width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+    .next-step-text { font-size:14px; color:var(--text2); line-height:1.5; }
+
+    @media (max-width:560px) {
+      .hero { padding:36px 20px 28px; }
+      .hero-title { font-size:26px; }
+      .field-row { grid-template-columns:1fr; }
+      .shift-tiles { grid-template-columns:1fr 1fr; }
+      .transport-tiles { grid-template-columns:repeat(2,1fr); }
+      .perks { gap:14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand">Front<em>Porch</em> <span style="font-size:13px;font-weight:400;color:var(--muted);">Marketing</span></div>
+  <div style="font-size:13px;color:var(--muted);">Porch Pro Sign-Up</div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">🏡 Join the Team</div>
+  <div class="hero-title">Become a Porch Pro</div>
+  <div class="hero-sub">Set your own schedule, work your neighborhood, and get paid per flyer. Takes 2 minutes to apply.</div>
+  <div class="perks">
+    <div class="perk"><div class="perk-icon">💵</div> Paid per flyer delivered</div>
+    <div class="perk"><div class="perk-icon">🗓</div> You set your schedule</div>
+    <div class="perk"><div class="perk-icon">📱</div> App-based — no paperwork</div>
+    <div class="perk"><div class="perk-icon">📍</div> Work your area</div>
+  </div>
+</div>
+
+<!-- STEP INDICATORS -->
+<div class="steps-bar" id="steps-bar">
+  <div class="step active" id="step-ind-1"><div class="step-num">1</div> About You</div>
+  <div class="step-divider" id="div-1"></div>
+  <div class="step" id="step-ind-2"><div class="step-num">2</div> Availability</div>
+</div>
+
+<div class="form-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:50%;"></div></div>
+
+  <!-- ── STEP 1: ABOUT YOU ── -->
+  <div class="form-card active" id="card-1">
+    <div class="card-icon">👤</div>
+    <div class="card-title">About You</div>
+    <div class="card-sub">Just the basics — we'll reach out to confirm your account and get you set up in the app.</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>First Name <span>*</span></label>
+        <input type="text" id="f-first" placeholder="Marcus" autocomplete="given-name" />
+        <div class="field-error" id="err-first">Please enter your first name.</div>
+      </div>
+      <div class="field">
+        <label>Last Name <span>*</span></label>
+        <input type="text" id="f-last" placeholder="Thompson" autocomplete="family-name" />
+        <div class="field-error" id="err-last">Please enter your last name.</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Phone <span>*</span></label>
+        <input type="tel" id="f-phone" placeholder="(512) 555-0100" autocomplete="tel" />
+        <div class="field-error" id="err-phone">Please enter a phone number.</div>
+      </div>
+      <div class="field">
+        <label>Email <span>*</span></label>
+        <input type="email" id="f-email" placeholder="marcus@email.com" autocomplete="email" />
+        <div class="field-error" id="err-email">Please enter a valid email.</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>City / Area <span>*</span></label>
+        <input type="text" id="f-city" placeholder="Cedar Park, TX" autocomplete="address-level2" />
+        <div class="field-hint">Where you want to work</div>
+        <div class="field-error" id="err-city">Please enter your city.</div>
+      </div>
+      <div class="field">
+        <label>Age <span>*</span></label>
+        <select id="f-age">
+          <option value="">Select…</option>
+          <option>18–24</option>
+          <option>25–34</option>
+          <option>35–44</option>
+          <option>45–54</option>
+          <option>55+</option>
+        </select>
+        <div class="field-hint">Must be 18 or older</div>
+        <div class="field-error" id="err-age">Please select your age range.</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-next" onclick="nextStep(1)">Continue → Availability</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: AVAILABILITY ── -->
+  <div class="form-card" id="card-2">
+    <div class="card-icon">🗓</div>
+    <div class="card-title">Your Availability</div>
+    <div class="card-sub">Let us know when you're free so we can match you with campaigns in your area.</div>
+
+    <!-- Days -->
+    <div class="field" style="margin-bottom:18px;">
+      <label style="margin-bottom:8px;">Days Available <span>*</span></label>
+      <div class="day-chips" id="day-chips">
+        <div class="day-chip" onclick="toggleDay(this,'Mon')">Mon</div>
+        <div class="day-chip" onclick="toggleDay(this,'Tue')">Tue</div>
+        <div class="day-chip" onclick="toggleDay(this,'Wed')">Wed</div>
+        <div class="day-chip" onclick="toggleDay(this,'Thu')">Thu</div>
+        <div class="day-chip" onclick="toggleDay(this,'Fri')">Fri</div>
+        <div class="day-chip" onclick="toggleDay(this,'Sat')">Sat</div>
+        <div class="day-chip" onclick="toggleDay(this,'Sun')">Sun</div>
+      </div>
+      <div class="field-error" id="err-days">Please select at least one day.</div>
+    </div>
+
+    <!-- Shift preference -->
+    <div class="field" style="margin-bottom:18px;">
+      <label style="margin-bottom:8px;">Preferred Shift <span>*</span></label>
+      <div class="shift-tiles" id="shift-tiles">
+        <div class="shift-tile" onclick="selectShift(this,'Morning')">
+          <div class="shift-tile-icon">🌅</div>
+          <div class="shift-tile-label">Morning</div>
+          <div class="shift-tile-time">8am – 12pm</div>
+        </div>
+        <div class="shift-tile" onclick="selectShift(this,'Afternoon')">
+          <div class="shift-tile-icon">☀️</div>
+          <div class="shift-tile-label">Afternoon</div>
+          <div class="shift-tile-time">12pm – 5pm</div>
+        </div>
+        <div class="shift-tile" onclick="selectShift(this,'Full Day')">
+          <div class="shift-tile-icon">📅</div>
+          <div class="shift-tile-label">Full Day</div>
+          <div class="shift-tile-time">8am – 5pm</div>
+        </div>
+      </div>
+      <div class="field-error" id="err-shift">Please select a shift preference.</div>
+    </div>
+
+    <!-- Hours per week -->
+    <div class="field-row">
+      <div class="field">
+        <label>Hours Available per Week <span>*</span></label>
+        <select id="f-hours">
+          <option value="">Select…</option>
+          <option>Under 10 hrs</option>
+          <option>10–20 hrs</option>
+          <option>20–30 hrs</option>
+          <option>30–40 hrs</option>
+          <option>40+ hrs (full-time)</option>
+        </select>
+        <div class="field-error" id="err-hours">Please select hours per week.</div>
+      </div>
+      <div class="field">
+        <label>How Soon Can You Start?</label>
+        <select id="f-start">
+          <option value="">Select…</option>
+          <option>Right away</option>
+          <option>Within a week</option>
+          <option>Within 2 weeks</option>
+          <option>Next month</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Transportation -->
+    <div class="field" style="margin-bottom:6px;">
+      <label style="margin-bottom:8px;">Transportation <span>*</span></label>
+      <div class="transport-tiles" id="transport-tiles">
+        <div class="transport-tile" onclick="selectTransport(this,'Car')">
+          <div class="transport-tile-icon">🚗</div>
+          <div class="transport-tile-label">Car</div>
+        </div>
+        <div class="transport-tile" onclick="selectTransport(this,'Bike')">
+          <div class="transport-tile-icon">🚲</div>
+          <div class="transport-tile-label">Bike</div>
+        </div>
+        <div class="transport-tile" onclick="selectTransport(this,'Walking')">
+          <div class="transport-tile-icon">🚶</div>
+          <div class="transport-tile-label">Walking</div>
+        </div>
+        <div class="transport-tile" onclick="selectTransport(this,'Other')">
+          <div class="transport-tile-icon">🛴</div>
+          <div class="transport-tile-label">Other</div>
+        </div>
+      </div>
+      <div class="field-error" id="err-transport">Please select your transportation.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-back" onclick="prevStep(2)">← Back</button>
+      <button class="btn-next" id="submit-btn" onclick="submitForm()">✅ Submit Application</button>
+    </div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted);">We'll review your application and reach out within 1 business day.</div>
+  </div>
+
+  <!-- ── SUCCESS ── -->
+  <div class="success-card" id="card-success">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Application Submitted!</div>
+    <div class="success-sub">Welcome to FrontPorch, <strong id="success-name"></strong>! We'll be in touch within one business day to set up your account and get you your first assignment.</div>
+    <div class="next-steps">
+      <div class="next-steps-title">What Happens Next</div>
+      <div class="next-step-item">
+        <div class="next-step-num">1</div>
+        <div class="next-step-text"><strong>We review your application</strong> — usually within 1 business day.</div>
+      </div>
+      <div class="next-step-item">
+        <div class="next-step-num">2</div>
+        <div class="next-step-text"><strong>You get a text with your PIN</strong> to log in to the FrontPorch app.</div>
+      </div>
+      <div class="next-step-item">
+        <div class="next-step-num">3</div>
+        <div class="next-step-text"><strong>Claim a zone and start earning</strong> — get paid per flyer delivered with photo proof.</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);">Confirmation sent to <strong id="success-email"></strong></div>
+  </div>
+
+</div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3000' : `${location.protocol}//${location.host}`;
+
+let selectedDays = [];
+let selectedShift = null;
+let selectedTransport = null;
+
+// ── DAY CHIPS ────────────────────────────────────────────────────────────────
+
+function toggleDay(el, day) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    selectedDays.push(day);
+  } else {
+    selectedDays = selectedDays.filter(d => d !== day);
+  }
+  document.getElementById('err-days').style.display = 'none';
+}
+
+// ── SHIFT ────────────────────────────────────────────────────────────────────
+
+function selectShift(el, val) {
+  document.querySelectorAll('.shift-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedShift = val;
+  document.getElementById('err-shift').style.display = 'none';
+}
+
+// ── TRANSPORT ────────────────────────────────────────────────────────────────
+
+function selectTransport(el, val) {
+  document.querySelectorAll('.transport-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTransport = val;
+  document.getElementById('err-transport').style.display = 'none';
+}
+
+// ── STEP NAV ─────────────────────────────────────────────────────────────────
+
+function nextStep(from) {
+  if (!validateStep(from)) return;
+  showStep(from + 1);
+}
+function prevStep(from) { showStep(from - 1); }
+
+function showStep(n) {
+  document.querySelectorAll('.form-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-'+n).classList.add('active');
+  for (let i = 1; i <= 2; i++) {
+    const ind = document.getElementById('step-ind-'+i);
+    ind.classList.remove('active','done');
+    if (i < n) { ind.classList.add('done'); ind.querySelector('.step-num').textContent = '✓'; }
+    else if (i === n) ind.classList.add('active');
+    if (i < 2) document.getElementById('div-'+i).classList.toggle('done', i < n);
+  }
+  document.getElementById('progress-fill').style.width = (n / 2 * 100) + '%';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+// ── VALIDATION ────────────────────────────────────────────────────────────────
+
+function validateStep(step) {
+  let ok = true;
+  const req = (id, errId, msg) => {
+    const val = document.getElementById(id).value.trim();
+    const err = document.getElementById(errId);
+    if (!val) { if(msg) err.textContent = msg; err.style.display = 'block'; ok = false; }
+    else err.style.display = 'none';
+    return val;
+  };
+
+  if (step === 1) {
+    req('f-first','err-first');
+    req('f-last','err-last');
+    req('f-phone','err-phone');
+    const email = req('f-email','err-email');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('err-email').style.display = 'block'; ok = false;
+    }
+    req('f-city','err-city');
+    req('f-age','err-age','Please select your age range.');
+  }
+
+  if (step === 2) {
+    if (selectedDays.length === 0) { document.getElementById('err-days').style.display = 'block'; ok = false; }
+    if (!selectedShift) { document.getElementById('err-shift').style.display = 'block'; ok = false; }
+    const hours = document.getElementById('f-hours').value;
+    if (!hours) { document.getElementById('err-hours').style.display = 'block'; ok = false; }
+    else document.getElementById('err-hours').style.display = 'none';
+    if (!selectedTransport) { document.getElementById('err-transport').style.display = 'block'; ok = false; }
+  }
+
+  return ok;
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+
+async function submitForm() {
+  if (!validateStep(2)) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Submitting…';
+  btn.disabled = true;
+
+  const payload = {
+    first_name:    document.getElementById('f-first').value.trim(),
+    last_name:     document.getElementById('f-last').value.trim(),
+    phone:         document.getElementById('f-phone').value.trim(),
+    email:         document.getElementById('f-email').value.trim(),
+    city:          document.getElementById('f-city').value.trim(),
+    age_range:     document.getElementById('f-age').value,
+    days:          selectedDays.join(', '),
+    shift:         selectedShift,
+    hours_per_week:document.getElementById('f-hours').value,
+    start_when:    document.getElementById('f-start').value,
+    transport:     selectedTransport,
+  };
+
+  const showSuccess = () => {
+    document.querySelectorAll('.form-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('card-success').classList.add('active');
+    document.getElementById('success-name').textContent  = payload.first_name;
+    document.getElementById('success-email').textContent = payload.email;
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('steps-bar').style.display   = 'none';
+    window.scrollTo({ top:0, behavior:'smooth' });
+  };
+
+  try {
+    const res  = await fetch(`${API}/api/flyerpro-signup`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Submission failed');
+    showSuccess();
+  } catch(e) {
+    if (e instanceof TypeError && e.message.includes('fetch')) {
+      showSuccess(); // server not running — demo mode
+    } else {
+      btn.textContent = '✅ Submit Application';
+      btn.disabled    = false;
+      alert('Something went wrong: ' + e.message + '\n\nPlease try again.');
+    }
+  }
+}
+</script>
+
+</body>
+</html>

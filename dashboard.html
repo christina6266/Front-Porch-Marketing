@@ -1,0 +1,3714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FrontPorch Marketing — Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #F5F0E8;
+      --white: #ffffff;
+      --border: #e5e7eb;
+      --border2: #d1d5db;
+      --accent: #C07830;
+      --accent-dark: #A06020;
+      --brand-dark: #2A2215;
+      --brand-cream: #F5F0E8;
+      --green: #22c55e;
+      --green-bg: #dcfce7;
+      --green-text: #15803d;
+      --yellow: #f59e0b;
+      --yellow-bg: #fef3c7;
+      --yellow-text: #92400e;
+      --red: #ef4444;
+      --red-bg: #fee2e2;
+      --red-text: #991b1b;
+      --gray-bg: #f3f4f6;
+      --text: #111827;
+      --text2: #374151;
+      --muted: #6b7280;
+      --muted2: #9ca3af;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --sidebar-w: 240px;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); display:flex; height:100vh; overflow:hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink:0; background: var(--white);
+      border-right: 1px solid var(--border); display:flex; flex-direction:column;
+      padding: 0; overflow:hidden;
+    }
+    .sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-brand-name { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing:-0.5px; }
+    .sidebar-brand-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .sidebar-nav { flex:1; padding: 12px 10px; overflow-y:auto; }
+    .nav-item {
+      display:flex; align-items:center; gap:10px; padding:9px 12px;
+      border-radius:8px; cursor:pointer; font-size:14px; font-weight:500;
+      color: var(--muted); margin-bottom:2px; transition: all 0.15s; text-decoration:none;
+    }
+    .nav-item:hover { background: var(--gray-bg); color: var(--text); }
+    .nav-item.active { background: #FDF0DC; color: var(--accent-dark); }
+    .nav-item svg { width:18px; height:18px; flex-shrink:0; }
+    .nav-badge { margin-left:auto; background: var(--accent); color:#fff; font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+    .wallet-row { display:flex; align-items:center; justify-content:space-between; font-size:13px; }
+    .wallet-label { color: var(--muted); display:flex; align-items:center; gap:6px; }
+    .wallet-amount { font-weight:700; color: var(--text); }
+    .wallet-add { background: var(--gray-bg); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-size:12px; cursor:pointer; color: var(--muted); }
+
+    /* ── MAIN ── */
+    .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .page { display:none; flex:1; flex-direction:column; overflow:hidden; }
+    .page.active { display:flex; }
+
+    /* ── TOPBAR ── */
+    .topbar { padding:16px 28px; border-bottom:1px solid var(--border); background:var(--white); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .topbar-title { font-size:22px; font-weight:800; }
+    .topbar-sub { font-size:13px; color:var(--muted); margin-top:2px; }
+    .topbar-right { display:flex; gap:10px; align-items:center; }
+    .btn { padding:8px 18px; border-radius:8px; border:none; cursor:pointer; font-size:14px; font-weight:600; transition:all 0.15s; }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { background:var(--accent-dark); }
+    .btn-ghost { background:var(--white); color:var(--text2); border:1px solid var(--border2); }
+    .btn-ghost:hover { background:var(--gray-bg); }
+    .btn-sm { padding:6px 14px; font-size:13px; }
+
+    /* ── TABS ── */
+    .tabs { display:flex; gap:4px; padding: 0 28px; border-bottom:1px solid var(--border); background:var(--white); flex-shrink:0; }
+    .tab-item { padding:12px 16px; font-size:14px; font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
+    .tab-item.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .tab-item:hover:not(.active) { color:var(--text); }
+
+    /* ── SCROLL BODY ── */
+    .page-body { flex:1; overflow-y:auto; padding:28px; }
+    .page-body::-webkit-scrollbar { width:6px; }
+    .page-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+    /* ══════════════════════════════════════════
+       MAP PAGE
+    ══════════════════════════════════════════ */
+    .map-page { flex:1; display:flex; overflow:hidden; }
+    .map-sidebar { width:300px; flex-shrink:0; border-right:1px solid var(--border); background:var(--white); display:flex; flex-direction:column; overflow:hidden; }
+    .map-sidebar-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:14px; font-weight:700; }
+    .sidebar-tab { flex:1; padding:10px 4px; font-size:12px; font-weight:600; background:none; border:none; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; transition:all 0.15s; }
+    .sidebar-tab.active { color:var(--accent); border-bottom-color:var(--accent); background:#FDF5EB; }
+    .route-stop { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .route-stop-num { width:24px; height:24px; border-radius:50%; background:#C07830; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .zone-stat-card { background:var(--gray-bg); border-radius:10px; padding:12px; margin-bottom:10px; }
+    .zone-stat-bar { height:6px; border-radius:3px; background:var(--border2); margin:6px 0; overflow:hidden; }
+    .zone-stat-bar-fill { height:100%; border-radius:3px; transition:width 0.5s; }
+    .map-sidebar-body { flex:1; overflow-y:auto; padding:12px; }
+    .map-sidebar-body::-webkit-scrollbar { width:4px; }
+    .map-sidebar-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    #map { flex:1; }
+
+    /* stat strip */
+    .stat-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); flex-shrink:0; }
+    .stat-cell { background:var(--white); padding:12px 20px; }
+    .stat-cell-label { font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600; }
+    .stat-cell-value { font-size:20px; font-weight:800; margin-top:2px; }
+    .stat-cell-sub { font-size:11px; color:var(--muted); margin-top:1px; }
+
+    /* canvasser card map */
+    .m-card { border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; transition:border-color 0.15s; }
+    .m-card:hover { border-color:var(--accent); }
+    .m-card.selected { border-color:var(--accent); background:#FDF5EB; }
+    .m-card-top { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .m-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+    .m-name { font-size:14px; font-weight:600; }
+    .m-zone { font-size:12px; color:var(--muted); }
+    .m-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
+    .m-stats strong { color:var(--text); font-weight:700; }
+    .status-pill { margin-left:auto; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+    .status-pill.active { background:var(--green-bg); color:var(--green-text); }
+    .status-pill.idle { background:var(--yellow-bg); color:var(--yellow-text); }
+    .status-pill.offline { background:var(--gray-bg); color:var(--muted); }
+    .idle-warn { background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:8px 10px; margin-top:6px; font-size:12px; color:#c2410c; display:flex; align-items:center; gap:6px; }
+
+    /* legend */
+    .map-legend { display:flex; gap:14px; padding:10px 16px; background:var(--white); border-bottom:1px solid var(--border); flex-wrap:wrap; flex-shrink:0; }
+    .leg { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); }
+    .leg-dot { width:10px; height:10px; border-radius:50%; }
+
+    /* ══════════════════════════════════════════
+       CANVASS DETAIL & PROFILE
+    ══════════════════════════════════════════ */
+    .canvass-detail { flex:1; display:flex; overflow:hidden; }
+    .canvass-detail-sidebar { width:320px; flex-shrink:0; border-right:1px solid var(--border); background:var(--white); display:flex; flex-direction:column; overflow:hidden; }
+    .canvass-detail-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .back-btn { cursor:pointer; color:var(--accent); font-size:13px; font-weight:600; display:flex; align-items:center; gap:4px; }
+    .canvass-detail-body { flex:1; overflow-y:auto; padding:14px; }
+    #canvass-detail-map { flex:1; }
+    .cv-profile-row { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; cursor:pointer; transition:border-color 0.15s; }
+    .cv-profile-row:hover { border-color:var(--accent); background:#FDF5EB; }
+    .cv-profile-stat { font-size:12px; color:var(--muted); display:flex; gap:10px; margin-top:3px; flex-wrap:wrap; }
+    .cv-profile-stat strong { color:var(--text); }
+
+    /* Profile modal */
+    .profile-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1500; display:flex; align-items:flex-start; justify-content:flex-end; }
+    .profile-modal { width:680px; height:100vh; background:var(--white); display:flex; flex-direction:column; overflow:hidden; box-shadow:-4px 0 30px rgba(0,0,0,0.15); }
+    .profile-modal-header { padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px; flex-shrink:0; }
+    .profile-modal-body { flex:1; overflow-y:auto; }
+    .profile-section { padding:20px 22px; border-bottom:1px solid var(--border); }
+    .profile-section-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); margin-bottom:14px; }
+    .profile-stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    /* Trend badges */
+    .trend-badge { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:700; border-radius:20px; padding:2px 8px; }
+    .trend-badge.up   { background:#dcfce7; color:#15803d; }
+    .trend-badge.down { background:#fee2e2; color:#991b1b; }
+    .trend-badge.steady { background:#f3f4f6; color:#6b7280; }
+    /* History chart */
+    .history-tabs { display:flex; gap:6px; margin-bottom:14px; }
+    .history-tab { padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--white); color:var(--muted); }
+    .history-tab.active { background:#FDF0DC; color:var(--accent-dark); border-color:var(--accent); }
+    .history-summary { display:flex; gap:16px; margin-top:12px; }
+    .history-summary-stat { font-size:12px; color:var(--muted); }
+    .history-summary-stat strong { color:var(--text); }
+    .profile-stat-card { background:var(--gray-bg); border-radius:8px; padding:12px 14px; }
+    .profile-stat-label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+    .profile-stat-value { font-size:20px; font-weight:800; margin-top:3px; }
+    .photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .photo-thumb { aspect-ratio:1; border-radius:6px; overflow:hidden; cursor:pointer; position:relative; background:var(--gray-bg); }
+    .photo-thumb img { width:100%; height:100%; object-fit:cover; transition:opacity 0.15s; }
+    .photo-thumb:hover img { opacity:0.8; }
+    .photo-thumb-overlay { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; padding:6px; background:linear-gradient(to top,rgba(0,0,0,0.6) 0%,transparent 60%); opacity:0; transition:opacity 0.15s; }
+    .photo-thumb:hover .photo-thumb-overlay { opacity:1; }
+    .photo-thumb-time { font-size:10px; color:#fff; font-weight:600; }
+    #profile-map { height:180px; flex-shrink:0; }
+
+    /* ══════════════════════════════════════════
+       CANVASSES PAGE
+    ══════════════════════════════════════════ */
+    .canvas-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:18px 22px; margin-bottom:10px; cursor:pointer; transition:box-shadow 0.15s; }
+    .canvas-card:hover { box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+    .canvas-card-top { display:flex; align-items:center; gap:12px; }
+    .canvas-card-title { font-size:16px; font-weight:700; }
+    .canvas-card-meta { display:flex; gap:16px; margin-top:10px; font-size:13px; color:var(--muted); flex-wrap:wrap; }
+    .meta-item { display:flex; align-items:center; gap:5px; }
+    .type-pill { padding:3px 10px; border-radius:20px; font-size:12px; font-weight:500; background:var(--gray-bg); color:var(--text2); border:1px solid var(--border); }
+    .status-badge { padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+    .status-badge.active { background:var(--green-bg); color:var(--green-text); }
+    .status-badge.awaiting { background:var(--yellow-bg); color:var(--yellow-text); }
+    .status-badge.draft { background:var(--gray-bg); color:var(--muted); }
+    .status-badge.completed { background:#ede9fe; color:#5b21b6; }
+    .chevron { margin-left:auto; color:var(--muted); font-size:18px; }
+
+    /* ══════════════════════════════════════════
+       MESSAGES PAGE
+    ══════════════════════════════════════════ */
+    .msg-layout { flex:1; display:flex; overflow:hidden; }
+    .msg-list { width:360px; flex-shrink:0; border-right:1px solid var(--border); overflow-y:auto; }
+    .msg-pane { flex:1; display:flex; flex-direction:column; background:var(--bg); }
+    .msg-item { display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.1s; }
+    .msg-item:hover { background:var(--gray-bg); }
+    .msg-item.selected { background:#FDF5EB; }
+    .msg-avatar-wrap { position:relative; flex-shrink:0; }
+    .msg-avatar { width:42px; height:42px; border-radius:50%; object-fit:cover; background:var(--gray-bg); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+    .online-dot { position:absolute; bottom:1px; right:1px; width:11px; height:11px; border-radius:50%; background:var(--green); border:2px solid var(--white); }
+    .msg-content { flex:1; min-width:0; }
+    .msg-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+    .msg-name { font-size:14px; font-weight:600; }
+    .msg-time { font-size:12px; color:var(--muted); }
+    .msg-preview { font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .msg-preview.unread { color:var(--text2); font-weight:500; }
+    .chat-header { padding:14px 20px; border-bottom:1px solid var(--border); background:var(--white); display:flex; align-items:center; gap:12px; flex-shrink:0; }
+    .chat-msgs { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
+    .bubble { max-width:70%; padding:10px 14px; border-radius:14px; font-size:14px; line-height:1.5; }
+    .bubble.them { background:var(--white); border:1px solid var(--border); border-radius:14px 14px 14px 4px; color:var(--text); }
+    .bubble.me { background:var(--accent); color:#fff; border-radius:14px 14px 4px 14px; margin-left:auto; }
+    .bubble-time { font-size:11px; color:var(--muted); margin-top:3px; }
+    .bubble-time.me { text-align:right; }
+    .chat-input-row { padding:14px 20px; border-top:1px solid var(--border); background:var(--white); display:flex; gap:10px; flex-shrink:0; }
+    .chat-input { flex:1; border:1px solid var(--border2); border-radius:10px; padding:10px 14px; font-size:14px; font-family:var(--font); outline:none; }
+    .chat-input:focus { border-color:var(--accent); }
+    .chat-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); }
+    .chat-empty svg { width:48px; height:48px; opacity:0.3; }
+
+    /* ══════════════════════════════════════════
+       CANVASSERS PAGE
+    ══════════════════════════════════════════ */
+    .leaderboard { background:var(--white); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+    .lb-tabs { display:flex; border-bottom:1px solid var(--border); }
+    .lb-tab { flex:1; padding:13px; text-align:center; font-size:14px; font-weight:600; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; }
+    .lb-tab.active { color:var(--text); border-bottom-color:var(--text); }
+    .lb-period { display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); }
+    .period-btn { padding:5px 14px; border-radius:20px; font-size:13px; font-weight:500; border:1px solid var(--border); background:var(--white); cursor:pointer; color:var(--muted); }
+    .period-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .lb-row { display:flex; align-items:center; gap:14px; padding:14px 18px; border-bottom:1px solid var(--border); }
+    .lb-row:last-child { border-bottom:none; }
+    .lb-row.gold { background:#fffbeb; }
+    .lb-rank { font-size:18px; width:28px; text-align:center; }
+    .lb-photo { width:44px; height:44px; border-radius:50%; object-fit:cover; background:var(--gray-bg); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+    .lb-name { font-size:15px; font-weight:600; flex:1; }
+    .lb-homes { font-size:16px; font-weight:800; }
+    .lb-homes-label { font-size:12px; color:var(--muted); font-weight:500; margin-left:4px; }
+
+    .search-row { display:flex; gap:10px; margin-bottom:14px; }
+    .search-input { flex:1; border:1px solid var(--border2); border-radius:8px; padding:9px 14px; font-size:14px; font-family:var(--font); outline:none; }
+    .search-input:focus { border-color:var(--accent); }
+    .select-input { border:1px solid var(--border2); border-radius:8px; padding:9px 14px; font-size:14px; font-family:var(--font); background:var(--white); cursor:pointer; outline:none; }
+
+    .filter-tabs { display:flex; gap:4px; margin-bottom:14px; }
+    .filter-tab { padding:6px 14px; border-radius:20px; font-size:13px; font-weight:500; border:1px solid var(--border); background:var(--white); cursor:pointer; color:var(--muted); }
+    .filter-tab.active { background:var(--text); color:#fff; border-color:var(--text); }
+
+    .cv-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:8px; display:flex; align-items:center; gap:14px; }
+    .cv-photo { width:52px; height:52px; border-radius:50%; background:var(--gray-bg); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex-shrink:0; }
+    .cv-info { flex:1; min-width:0; }
+    .cv-name { font-size:15px; font-weight:700; margin-bottom:3px; }
+    .cv-meta-top { font-size:13px; color:var(--muted); display:flex; gap:12px; margin-bottom:5px; }
+    .cv-meta-top span { display:flex; align-items:center; gap:4px; }
+    .cv-stats-row { display:flex; gap:12px; font-size:12px; color:var(--muted); align-items:center; }
+    .cv-stats-row strong { color:var(--text); }
+    .stars { color:#d1d5db; font-size:14px; letter-spacing:2px; }
+    .cv-actions { display:flex; gap:8px; align-items:center; }
+    .icon-btn { width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted); transition:all 0.15s; }
+    .icon-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .icon-btn.danger:hover { border-color:var(--red); color:var(--red); }
+    .accountability-bar { margin-top:6px; }
+    .acc-label { font-size:11px; color:var(--muted); margin-bottom:3px; display:flex; justify-content:space-between; }
+    .acc-track { height:4px; background:var(--gray-bg); border-radius:2px; overflow:hidden; }
+    .acc-fill { height:100%; border-radius:2px; }
+
+    /* ══════════════════════════════════════════
+       ANALYTICS PAGE
+    ══════════════════════════════════════════ */
+    .analytics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+    .analytics-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:20px; }
+    .analytics-card-label { font-size:12px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600; margin-bottom:8px; }
+    .analytics-card-value { font-size:28px; font-weight:800; }
+    .analytics-card-trend { font-size:13px; margin-top:4px; }
+    .trend-up { color:var(--green-text); }
+    .trend-down { color:var(--red); }
+
+    .chart-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px; }
+    .chart-card-title { font-size:15px; font-weight:700; margin-bottom:16px; }
+    .bar-chart { display:flex; gap:8px; align-items:flex-end; height:140px; }
+    .bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; height:100%; justify-content:flex-end; }
+    .bar-block { width:100%; border-radius:6px 6px 0 0; min-height:4px; transition:height 0.4s; }
+    .bar-label { font-size:11px; color:var(--muted); }
+    .bar-val { font-size:11px; font-weight:600; }
+
+    /* ══════════════════════════════════════════
+       PAYOUTS PAGE
+    ══════════════════════════════════════════ */
+    .payout-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+    .payout-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:18px 20px; }
+    .payout-card-label { font-size:12px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600; }
+    .payout-card-value { font-size:26px; font-weight:800; margin-top:4px; }
+    .payout-table { background:var(--white); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .payout-table-header { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 140px; padding:12px 18px; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--gray-bg); }
+    .payout-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 140px; padding:14px 18px; border-bottom:1px solid var(--border); align-items:center; font-size:14px; }
+    .payout-row:last-child { border-bottom:none; }
+    .payout-name { display:flex; align-items:center; gap:10px; font-weight:600; }
+    .payout-status { padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+    .payout-status.pending { background:#fef3c7; color:#92400e; }
+    .payout-status.paid { background:#dcfce7; color:#15803d; }
+    .payout-actions { display:flex; gap:6px; }
+    .pay-btn { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; border:none; }
+    .pay-btn.approve { background:#C07830; color:#fff; }
+    .pay-btn.approve:hover { background:#A06020; }
+    .pay-btn.paid-label { background:var(--gray-bg); color:var(--muted); cursor:default; }
+
+    /* ══════════════════════════════════════════
+       SCHEDULE PAGE
+    ══════════════════════════════════════════ */
+    .schedule-grid { display:grid; grid-template-columns:120px repeat(7,1fr); border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--white); }
+    .sched-head { background:var(--gray-bg); padding:10px 14px; font-size:12px; font-weight:700; color:var(--muted); text-align:center; border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+    .sched-head:last-child { border-right:none; }
+    .sched-label { padding:12px 14px; font-size:13px; font-weight:600; border-bottom:1px solid var(--border); border-right:1px solid var(--border); background:var(--gray-bg); display:flex; align-items:center; gap:8px; }
+    .sched-label .m-avatar { width:28px; height:28px; font-size:10px; }
+    .sched-cell { padding:8px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); min-height:60px; cursor:pointer; transition:background 0.1s; }
+    .sched-cell:hover { background:#FDF5EB; }
+    .sched-cell:last-child { border-right:none; }
+    .sched-cell:hover { background:#FDF5EB; }
+    .sched-cell:last-child { border-bottom:none; }
+    .sched-shift { border-radius:6px; padding:4px 6px; font-size:11px; font-weight:600; margin-bottom:4px; }
+    .sched-shift.morning { background:#dbeafe; color:#1e40af; }
+    .sched-shift.afternoon { background:#dcfce7; color:#15803d; }
+    .sched-shift.full { background:#ede9fe; color:#5b21b6; }
+    .sched-add { width:100%; border:1px dashed var(--border2); border-radius:6px; padding:4px; font-size:11px; color:var(--muted); background:none; cursor:pointer; text-align:center; }
+    .sched-add:hover { border-color:var(--accent); color:var(--accent); }
+    .sched-select { width:100%; border:1px solid var(--border); border-radius:6px; padding:5px 6px; font-size:12px; font-family:var(--font); background:var(--white); cursor:pointer; color:var(--muted); outline:none; }
+    .sched-select:focus { border-color:var(--accent); }
+    .sched-select--morning { background:#dbeafe; color:#1e40af; border-color:#D4A56A; font-weight:600; }
+    .sched-select--afternoon { background:#dcfce7; color:#15803d; border-color:#86efac; font-weight:600; }
+    .sched-select--full { background:#ede9fe; color:#5b21b6; border-color:#c4b5fd; font-weight:600; }
+
+    /* ══════════════════════════════════════════
+       MODAL
+    ══════════════════════════════════════════ */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; display:flex; align-items:center; justify-content:center; }
+    .modal-box { background:var(--white); border-radius:16px; padding:28px; width:480px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .modal-title { font-size:18px; font-weight:800; margin-bottom:4px; }
+    .modal-sub { font-size:13px; color:var(--muted); margin-bottom:20px; }
+    .modal-field { margin-bottom:14px; }
+    .modal-label { font-size:13px; font-weight:600; display:block; margin-bottom:5px; }
+    .modal-input { width:100%; border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:14px; font-family:var(--font); outline:none; }
+    .modal-input:focus { border-color:var(--accent); }
+    .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper { border-radius:10px !important; box-shadow:0 4px 20px rgba(0,0,0,0.15) !important; }
+    .leaflet-popup-content { font-family:var(--font) !important; font-size:13px !important; line-height:1.6 !important; }
+  </style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name" style="color:var(--brand-dark);">Front<span style="color:var(--accent);font-style:italic;">Porch</span></div>
+    <div class="sidebar-brand-sub">Marketing Dashboard</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="nav('map',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+      Map
+    </div>
+    <div class="nav-item" onclick="nav('canvasses',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Canvasses
+    </div>
+    <div class="nav-item" onclick="nav('messages',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      Messages
+      <span class="nav-badge">2</span>
+    </div>
+    <div class="nav-item" onclick="nav('canvassers',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Canvassers
+    </div>
+    <div class="nav-item" onclick="nav('payouts',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Payouts
+    </div>
+    <div class="nav-item" onclick="nav('schedule',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      Schedule
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="wallet-row">
+      <div class="wallet-label">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        Wallet
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="wallet-amount">$104.00</div>
+        <button class="wallet-add">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- ══════ MAP PAGE ══════ -->
+  <div class="page active" id="page-map">
+    <!-- stat strip -->
+    <div class="stat-strip">
+      <div class="stat-cell">
+        <div class="stat-cell-label">Doors Today</div>
+        <div class="stat-cell-value" style="color:#C07830" id="s-doors">1,445</div>
+        <div class="stat-cell-sub">↑ 22% vs yesterday</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-cell-label">Conversions</div>
+        <div class="stat-cell-value" style="color:#22c55e" id="s-conv">122</div>
+        <div class="stat-cell-sub">8.4% rate</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-cell-label">Active Now</div>
+        <div class="stat-cell-value" style="color:#f59e0b">4 / 6</div>
+        <div class="stat-cell-sub">2 offline</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-cell-label">Hours Logged</div>
+        <div class="stat-cell-value" style="color:#C07830">18.5</div>
+        <div class="stat-cell-sub">Across all reps</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-cell-label">Flyered Homes</div>
+        <div class="stat-cell-value" style="color:#22c55e" id="s-flyered">0</div>
+        <div class="stat-cell-sub">Tap map to log</div>
+      </div>
+    </div>
+    <div class="map-legend">
+      <span style="font-size:12px;font-weight:600;color:var(--text2);margin-right:4px;">Legend:</span>
+      <div class="leg"><div class="leg-dot" style="background:#22c55e"></div>Flyered ✓</div>
+      <div class="leg"><div class="leg-dot" style="background:#D4A56A;opacity:0.7;"></div>Home</div>
+      <div class="leg"><div class="leg-dot" style="background:#fbbf24;border:2px solid #d97706;"></div>Selected</div>
+      <div class="leg"><div class="leg-dot" style="background:#f59e0b;width:12px;height:12px;border:2px solid #fff;box-shadow:0 0 0 1px #d1d5db;border-radius:50%;"></div>Porch Pro (live)</div>
+      <div class="leg"><div style="width:12px;height:12px;border-radius:50%;background:#3b82f6;border:2px solid #fff;box-shadow:0 0 0 3px rgba(59,130,246,0.35);"></div>You (GPS)</div>
+      <span style="font-size:11px;color:var(--muted);margin-left:auto;">Zoom in to see homes</span>
+      <!-- Map mode toggle -->
+      <div style="display:flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-left:10px;flex-shrink:0;">
+        <button id="map-mode-satellite" onclick="setMapMode('satellite')" style="padding:4px 12px;font-size:12px;font-weight:600;background:#C07830;color:#fff;border:none;cursor:pointer;">🛰 Satellite</button>
+        <button id="map-mode-explore" onclick="setMapMode('explore')" style="padding:4px 12px;font-size:12px;font-weight:600;background:var(--white);color:var(--text2);border:none;cursor:pointer;">🗺 Explore</button>
+      </div>
+      <button id="draw-territory-btn" onclick="toggleDrawMode()" style="padding:4px 14px;font-size:12px;font-weight:600;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-left:8px;flex-shrink:0;">✏️ Draw Territory</button>
+      <button id="checkin-btn" onclick="handleCheckInOut()" style="padding:4px 14px;font-size:12px;font-weight:600;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-left:8px;flex-shrink:0;">▶ Check In</button>
+    </div>
+    <div class="map-page">
+      <div class="map-sidebar">
+        <!-- Sidebar tabs -->
+        <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <button class="sidebar-tab active" id="stab-team" onclick="switchSidebarTab('team')">👥 Team</button>
+          <button class="sidebar-tab" id="stab-route" onclick="switchSidebarTab('route')">🗺 Route</button>
+          <button class="sidebar-tab" id="stab-zones" onclick="switchSidebarTab('zones')">📊 Zones</button>
+        </div>
+        <!-- Team panel -->
+        <div class="map-sidebar-body" id="sidebar-team">
+          <div id="map-canvasser-list"></div>
+        </div>
+        <!-- Route panel -->
+        <div class="map-sidebar-body" id="sidebar-route" style="display:none;">
+          <div style="padding:4px 0 10px;">
+            <button onclick="buildRoute()" style="width:100%;padding:9px;background:#C07830;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">⚡ Optimize My Route</button>
+          </div>
+          <div id="route-list" style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0;">Tap "Optimize" to generate a walking route through unvisited homes in your zone.</div>
+        </div>
+        <!-- Zone stats panel -->
+        <div class="map-sidebar-body" id="sidebar-zones" style="display:none;padding:14px 12px;">
+          <div id="zone-stats-list"></div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+            <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Heatmap</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="heatmap-toggle" onchange="toggleHeatmap(this.checked)" style="width:16px;height:16px;cursor:pointer;"/>
+              Show flyered homes heatmap
+            </label>
+          </div>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+  <!-- Hidden file input for flyered home photo capture -->
+  <input type="file" id="flyer-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="onFlyerPhotoSelected(event)"/>
+
+  <!-- ══════ CANVASSES PAGE ══════ -->
+  <div class="page" id="page-canvasses">
+    <!-- List view -->
+    <div id="canvass-list-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Canvasses</div>
+          <div class="topbar-sub">Manage all your marketing canvasses</div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-primary" onclick="showCreateCanvassModal()">⊕ Create Canvass</button>
+        </div>
+      </div>
+      <div class="tabs" id="canvass-tabs">
+        <div class="tab-item active" onclick="filterCanvasses('all',this)">All</div>
+        <div class="tab-item" onclick="filterCanvasses('active',this)">Active</div>
+        <div class="tab-item" onclick="filterCanvasses('awaiting',this)">Awaiting Materials</div>
+        <div class="tab-item" onclick="filterCanvasses('draft',this)">Draft</div>
+        <div class="tab-item" onclick="filterCanvasses('completed',this)">Completed</div>
+      </div>
+      <div class="page-body" id="canvasses-list"></div>
+    </div>
+    <!-- Detail view -->
+    <div id="canvass-detail-view" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="topbar" style="flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="back-btn" onclick="closeCanvassDetail()">← Back</div>
+          <div>
+            <div class="topbar-title" id="detail-title">—</div>
+            <div class="topbar-sub" id="detail-sub">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="canvass-detail">
+        <div class="canvass-detail-sidebar">
+          <div class="canvass-detail-header">
+            <div style="font-size:14px;font-weight:700;">Assigned Porch Pros</div>
+            <div id="detail-cv-count" style="font-size:12px;color:var(--muted);margin-left:auto;"></div>
+          </div>
+          <div class="canvass-detail-body" id="detail-cv-list"></div>
+        </div>
+        <div id="canvass-detail-map"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ MESSAGES PAGE ══════ -->
+  <div class="page" id="page-messages">
+    <div class="topbar" style="flex-shrink:0;">
+      <div>
+        <div class="topbar-title">Messages</div>
+      </div>
+    </div>
+    <div class="msg-layout">
+      <div class="msg-list" style="background:var(--white);">
+        <div style="display:flex;border-bottom:1px solid var(--border);margin:0;">
+          <div style="flex:1;padding:12px;text-align:center;font-size:14px;font-weight:600;background:var(--white);border-bottom:2px solid var(--text);cursor:pointer;">Chats</div>
+          <div style="flex:1;padding:12px;text-align:center;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;">Activity</div>
+        </div>
+        <div id="msg-thread-list"></div>
+      </div>
+      <div class="msg-pane" id="chat-pane">
+        <div class="chat-empty" id="chat-empty">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span>Select a conversation to open it</span>
+        </div>
+        <div id="chat-open" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+          <div class="chat-header" id="chat-header"></div>
+          <div class="chat-msgs" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" placeholder="Type a message…" id="chat-input" onkeydown="sendMsg(event)" />
+            <button class="btn btn-primary btn-sm" onclick="sendMsg({key:'Enter'})">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ CANVASSERS PAGE ══════ -->
+  <div class="page" id="page-canvassers">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Porch Pros</div>
+        <div class="topbar-sub">Porch Pros who have worked on your campaigns</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="showInvitePorchProModal()">+ Invite Porch Pro</button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- Leaderboard -->
+      <div class="leaderboard">
+        <div class="lb-tabs">
+          <div class="lb-tab active">🏆 Leaderboard</div>
+          <div class="lb-tab">🔥 All-Time Records</div>
+        </div>
+        <div class="lb-period">
+          <button class="period-btn" onclick="setPeriod('day',this)">Day</button>
+          <button class="period-btn active" onclick="setPeriod('week',this)">Week</button>
+          <button class="period-btn" onclick="setPeriod('month',this)">Month</button>
+          <button class="period-btn" onclick="setPeriod('quarter',this)">Quarter</button>
+          <button class="period-btn" onclick="setPeriod('year',this)">Year</button>
+        </div>
+        <div id="lb-rows"></div>
+      </div>
+      <!-- Search -->
+      <div class="search-row">
+        <input class="search-input" placeholder="🔍  Search canvassers…" />
+        <select class="select-input"><option>Most Recent</option><option>Most Homes</option><option>Best Conversion</option></select>
+        <button class="btn btn-ghost">⚙ Filters</button>
+      </div>
+      <div class="filter-tabs">
+        <div class="filter-tab active">All (6)</div>
+        <div class="filter-tab">Favorites (0)</div>
+        <div class="filter-tab">Blacklisted (0)</div>
+      </div>
+      <div id="canvassers-list"></div>
+    </div>
+  </div>
+
+  <!-- ══════ PAYOUTS PAGE ══════ -->
+  <div class="page" id="page-payouts">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Payouts</div>
+        <div class="topbar-sub">Manage Porch Pro earnings — May 2026</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm">⬇ Export CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="approveAll()">✓ Approve All Pending</button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- Tier cards -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:#FDF5EB;border:1.5px solid #F5DEB3;border-radius:12px;padding:16px 18px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#8B5520;margin-bottom:6px;">🟢 Starter</div>
+          <div style="font-size:22px;font-weight:800;color:#8B5520;">$0.10 <span style="font-size:13px;font-weight:500;">/door</span></div>
+          <div style="font-size:12px;color:#8B5520;margin-top:4px;">Any doors knocked</div>
+        </div>
+        <div style="background:#fefce8;border:1.5px solid #fde047;border-radius:12px;padding:16px 18px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#854d0e;margin-bottom:6px;">🥈 Pro</div>
+          <div style="font-size:22px;font-weight:800;color:#854d0e;">$0.18 <span style="font-size:13px;font-weight:500;">/door</span></div>
+          <div style="font-size:12px;color:#854d0e;margin-top:4px;">3+ days · 1,000+ doors/wk</div>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px 18px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#15803d;margin-bottom:6px;">🏆 Elite</div>
+          <div style="font-size:22px;font-weight:800;color:#15803d;">$0.25 <span style="font-size:13px;font-weight:500;">/door</span></div>
+          <div style="font-size:12px;color:#15803d;margin-top:4px;">4+ days · 1,500+ doors/wk</div>
+        </div>
+      </div>
+      <!-- Cashout rule banner -->
+      <div style="background:#FDF5EB;border:1px solid #F5DEB3;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;color:#8B5520;">
+        <span style="font-size:18px;">💡</span>
+        <span><strong>Cashout rule:</strong> Porch Pros can request a mid-week payout once they hit <strong>500 doors</strong>. At the end of each week everyone is paid out automatically — even if under 500. Resets every Monday.</span>
+      </div>
+      <!-- Summary row -->
+      <div class="payout-summary" style="margin-bottom:20px;">
+        <div class="payout-card">
+          <div class="payout-card-label">Total Owed (Pending)</div>
+          <div class="payout-card-value" style="color:var(--yellow)" id="pay-owed">$0</div>
+        </div>
+        <div class="payout-card">
+          <div class="payout-card-label">Paid This Month</div>
+          <div class="payout-card-value" style="color:var(--green-text)" id="pay-paid">$0</div>
+        </div>
+        <div class="payout-card">
+          <div class="payout-card-label">Top Earner</div>
+          <div class="payout-card-value" style="font-size:18px;" id="pay-top">—</div>
+        </div>
+      </div>
+      <div class="payout-table">
+        <div class="payout-table-header" style="grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 160px;">
+          <div>Porch Pro</div>
+          <div>Doors / Days</div>
+          <div>Tier</div>
+          <div>Rate</div>
+          <div>Amount</div>
+          <div>Action</div>
+        </div>
+        <div id="payout-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ SCHEDULE PAGE ══════ -->
+  <div class="page" id="page-schedule">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Schedule</div>
+        <div class="topbar-sub"></div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="shiftWeek(-1)">◀ Prev Week</button>
+        <button class="btn btn-ghost btn-sm" onclick="shiftWeek(1)">Next Week ▶</button>
+        <button class="btn btn-primary btn-sm" onclick="showShiftModal()">+ Add Shift</button>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="schedule-grid" id="schedule-grid"></div>
+      <div style="display:flex;gap:16px;margin-top:14px;font-size:13px;">
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#dbeafe;display:inline-block;"></span> Morning (8am–12pm)</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#dcfce7;display:inline-block;"></span> Afternoon (12pm–5pm)</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:#ede9fe;display:inline-block;"></span> Full Day (8am–8pm)</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══ MODALS ══ -->
+<div id="modal-root"></div>
+
+<!-- ══ CANVASSER PROFILE MODAL ══ -->
+<div id="profile-modal" style="display:none;" class="profile-modal-backdrop" onclick="if(event.target===this)closeProfile()">
+  <div class="profile-modal">
+    <div class="profile-modal-header">
+      <div id="profile-avatar" style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="profile-name" style="font-size:18px;font-weight:800;"></div>
+        <div id="profile-zone" style="font-size:13px;color:var(--muted);"></div>
+      </div>
+      <div id="profile-tier-badge" style="padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;"></div>
+      <div onclick="closeProfile()" style="width:34px;height:34px;border-radius:50%;background:var(--gray-bg);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--muted);margin-left:10px;">✕</div>
+    </div>
+    <div class="profile-modal-body">
+      <!-- Stats -->
+      <div class="profile-section">
+        <div class="profile-section-title">This Week</div>
+        <div class="profile-stats-grid">
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Doors</div>
+            <div class="profile-stat-value" id="profile-doors" style="color:#C07830;">—</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Conversions</div>
+            <div class="profile-stat-value" id="profile-conv" style="color:#22c55e;">—</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Accountability</div>
+            <div class="profile-stat-value" id="profile-acc">—</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Days Worked</div>
+            <div class="profile-stat-value" id="profile-days">—</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Rate</div>
+            <div class="profile-stat-value" id="profile-rate">—</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="profile-stat-label">Earned</div>
+            <div class="profile-stat-value" id="profile-earned" style="color:#15803d;">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- Performance History -->
+      <div class="profile-section" id="profile-history-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="profile-section-title" style="margin-bottom:0;">Performance History</div>
+          <span id="profile-trend-badge" class="trend-badge steady">→ Steady</span>
+        </div>
+        <div class="history-tabs">
+          <div class="history-tab active" onclick="switchHistoryTab('doors',this)">Doors / Day</div>
+          <div class="history-tab" onclick="switchHistoryTab('acc',this)">Accountability</div>
+          <div class="history-tab" onclick="switchHistoryTab('dph',this)">Doors / Hr</div>
+        </div>
+        <div style="position:relative;height:160px;">
+          <canvas id="profile-history-chart"></canvas>
+        </div>
+        <div class="history-summary">
+          <div class="history-summary-stat">Last 7 days avg: <strong id="hist-recent-avg">—</strong></div>
+          <div class="history-summary-stat">Prior 7 days avg: <strong id="hist-prior-avg">—</strong></div>
+          <div class="history-summary-stat" id="hist-best-day-wrap">Best day: <strong id="hist-best-day">—</strong></div>
+        </div>
+      </div>
+      <!-- Mini map -->
+      <div class="profile-section" style="padding:0;">
+        <div id="profile-map"></div>
+      </div>
+      <!-- Photo proof grid -->
+      <div class="profile-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="profile-section-title" style="margin-bottom:0;">Photo Proof</div>
+          <div id="profile-photo-count" style="font-size:12px;color:var(--muted);"></div>
+        </div>
+        <div class="photo-grid" id="profile-photo-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PHOTO PROOF LIGHTBOX ══ -->
+<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;align-items:center;justify-content:center;" onclick="if(event.target===this)closePhoto()">
+  <!-- Counter -->
+  <div style="position:absolute;top:18px;left:24px;color:#fff;font-size:15px;font-weight:600;opacity:0.85;" id="photo-counter">1 / 247</div>
+  <!-- Close -->
+  <div onclick="closePhoto()" style="position:absolute;top:14px;right:18px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#fff;">✕</div>
+  <!-- Prev -->
+  <div onclick="prevPhoto()" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#fff;user-select:none;">‹</div>
+  <!-- Next -->
+  <div onclick="nextPhoto()" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#fff;user-select:none;">›</div>
+  <!-- Content -->
+  <div style="display:flex;gap:0;border-radius:16px;overflow:hidden;max-width:860px;width:90%;background:#1a1a1a;">
+    <!-- Photo -->
+    <div style="flex:1;min-width:0;background:#000;display:flex;align-items:center;justify-content:center;">
+      <img id="photo-img" src="" alt="Door proof photo" style="width:100%;max-height:520px;object-fit:contain;display:block;"/>
+    </div>
+    <!-- Info panel -->
+    <div style="width:240px;flex-shrink:0;background:#111;padding:28px 22px;display:flex;flex-direction:column;gap:20px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Canvasser</div>
+        <div style="font-size:16px;font-weight:700;color:#fff;" id="photo-canvasser">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Timestamp</div>
+        <div style="font-size:14px;color:#e5e7eb;" id="photo-time">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Outcome</div>
+        <div style="font-size:14px;font-weight:600;" id="photo-outcome">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">GPS Coordinates</div>
+        <div style="font-size:12px;color:#9ca3af;font-family:monospace;" id="photo-coords">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Street View</div>
+        <a id="photo-streetview" href="#" target="_blank" style="font-size:13px;color:#60a5fa;text-decoration:none;">↗ View on Google Street View</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ FLYERED HOME LIGHTBOX ══════ -->
+<div id="flyer-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2100;align-items:center;justify-content:center;" onclick="if(event.target===this)closeFlyerLightbox()">
+  <div onclick="closeFlyerLightbox()" style="position:absolute;top:14px;right:18px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#fff;">✕</div>
+  <div style="display:flex;gap:0;border-radius:16px;overflow:hidden;max-width:800px;width:90%;background:#1a1a1a;">
+    <div style="flex:1;min-width:0;background:#000;display:flex;align-items:center;justify-content:center;">
+      <img id="flyer-lb-img" src="" alt="Flyer proof photo" style="width:100%;max-height:520px;object-fit:contain;display:block;"/>
+    </div>
+    <div style="width:220px;flex-shrink:0;background:#111;padding:28px 20px;display:flex;flex-direction:column;gap:18px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0;"></div>
+        <span style="font-size:13px;font-weight:700;color:#22c55e;">Flyered ✓</span>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Address</div>
+        <div style="font-size:14px;color:#fff;" id="flyer-lb-address">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Logged by</div>
+        <div style="font-size:14px;color:#e5e7eb;" id="flyer-lb-canvasser">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">Time</div>
+        <div style="font-size:14px;color:#e5e7eb;" id="flyer-lb-time">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin-bottom:6px;">GPS</div>
+        <div style="font-size:11px;color:#9ca3af;font-family:monospace;" id="flyer-lb-coords">—</div>
+      </div>
+      <a id="flyer-lb-sv" href="#" target="_blank" style="font-size:13px;color:#60a5fa;text-decoration:none;margin-top:auto;">↗ Street View</a>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+
+const canvassers = [
+  { id:1, name:'Marcus T.', initials:'MT', color:'#C07830', zone:'Zone A — Downtown', doors:412, conversions:38, dph:103, status:'active', lat:30.5083, lng:-97.6789, accountability:94, phone:'512-555-0101', location:'Pflugerville, TX', lastActive:'Just now' },
+  { id:2, name:'Priya K.', initials:'PK', color:'#7c3aed', zone:'Zone B — Midtown', doors:378, conversions:29, dph:98, status:'active', lat:30.5140, lng:-97.6650, accountability:88, phone:'512-555-0102', location:'Round Rock, TX', lastActive:'3 min ago' },
+  { id:3, name:'DeShawn R.', initials:'DR', color:'#22c55e', zone:'Zone C — Westside', doors:445, conversions:41, dph:112, status:'active', lat:30.5020, lng:-97.6920, accountability:97, phone:'512-555-0103', location:'Pflugerville, TX', lastActive:'1 min ago' },
+  { id:4, name:'Sofia L.', initials:'SL', color:'#f59e0b', zone:'Zone A — Downtown', doors:210, conversions:14, dph:87, status:'idle', lat:30.5060, lng:-97.6820, accountability:61, phone:'512-555-0104', location:'Georgetown, TX', lastActive:'19 min ago', idleMin:19 },
+  { id:5, name:'James W.', initials:'JW', color:'#6b7280', zone:'Zone D — East', doors:0, conversions:0, dph:0, status:'offline', lat:30.5200, lng:-97.6480, accountability:42, phone:'512-555-0105', location:'Cedar Park, TX', lastActive:'3 hr ago' },
+  { id:6, name:'Aisha B.', initials:'AB', color:'#6b7280', zone:'Zone D — East', doors:0, conversions:0, dph:0, status:'offline', lat:30.4980, lng:-97.6560, accountability:55, phone:'512-555-0106', location:'Austin, TX', lastActive:'5 hr ago' },
+];
+
+const canvassesList = [
+  { id:1, title:'Summer Push', type:'Door Hangers', status:'active', location:'Williamson County, TX', dateRange:'May 20 – ongoing', zones:1, cvs:1 },
+  { id:2, title:'Summer Push', type:'Door Hangers', status:'active', location:'Williamson County, TX', dateRange:'May 20 – ongoing', zones:5, cvs:2 },
+  { id:3, title:'Local Promo Blitz', type:'Door Hangers', status:'active', location:'Williamson County, TX', dateRange:'May 28 – Jun 2', zones:1, cvs:0 },
+  { id:4, title:'Spring Awareness', type:'Flyers', status:'completed', location:'Travis County, TX', dateRange:'Apr 1 – Apr 30', zones:3, cvs:4 },
+  { id:5, title:'New Neighborhoods Q3', type:'Door Hangers', status:'draft', location:'Hays County, TX', dateRange:'Not set', zones:0, cvs:0 },
+];
+
+const messages = [
+  { id:1, name:'Erica A. Lopez', initials:'EA', color:'#f59e0b', online:true, time:'1d ago', preview:'What is the update with flyering', unread:true,
+    chat:[
+      {from:'them',text:'Hey Christina! Quick question — what is the update with flyering this week?',time:'Yesterday 2:14 PM'},
+      {from:'me',text:'Hi Erica! We\'re back on for Thursday and Friday. Same zones as before.',time:'Yesterday 3:02 PM'},
+      {from:'them',text:'What is the update with flyering',time:'Yesterday 4:45 PM'},
+    ]
+  },
+  { id:2, name:'Hayden Hone', initials:'HH', color:'#C07830', online:true, time:'9d ago', preview:'Hi Hayden, i\'m sorry but I\'ve been trying to get a…', unread:false,
+    chat:[
+      {from:'them',text:'Hey, wanted to check in on the new territory assignment?',time:'9 days ago'},
+      {from:'me',text:'Hi Hayden, I\'m sorry but I\'ve been trying to get all the zones updated. Should be ready by tomorrow.',time:'9 days ago'},
+      {from:'them',text:'Sounds good, thanks!',time:'9 days ago'},
+    ]
+  },
+  { id:3, name:'Cody Stickle', initials:'CS', color:'#22c55e', online:true, time:'10d ago', preview:'Hello, I am sent in multiple messages at this poi…', unread:false,
+    chat:[
+      {from:'them',text:'Hello, I am sent in multiple messages at this point but just want to confirm my start time Saturday.',time:'10 days ago'},
+      {from:'me',text:'Hi Cody! Start time is 9am. I\'ll send you the zone details tonight.',time:'10 days ago'},
+    ]
+  },
+];
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+
+let mapInitialized = false;
+
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  if (page === 'map' && !mapInitialized) { setTimeout(initMap, 50); mapInitialized = true; }
+  if (page === 'map' && mapInitialized && window._map) { setTimeout(() => window._map.invalidateSize(), 50); }
+  if (page === 'canvasses') { closeCanvassDetail(); renderCanvasses('all'); }
+  if (page === 'canvassers') { renderLeaderboard(); renderCanvassersList(); prefetchAllTrends(); }
+  if (page === 'payouts') { refreshPayouts().then(() => { if (!livePayouts.length) calcPaySummary(); }); }
+  if (page === 'schedule') { loadSchedule(); }
+}
+
+// ═══════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════
+
+const outcomes = ['converted','interested','not_home','no_thanks'];
+const outcomeColors = { converted:'#22c55e', interested:'#C07830', not_home:'#9ca3af', no_thanks:'#ef4444' };
+const outcomeLabels = { converted:'Converted', interested:'Interested', not_home:'Not Home', no_thanks:'No Thanks' };
+
+function genDoors(c, count) {
+  return Array.from({length:count}, (_, i) => {
+    const r = 0.004 + Math.random()*0.01, a = Math.random()*2*Math.PI;
+    const weights = c.conversions/c.doors;
+    const rand = Math.random();
+    const outcome = rand < weights ? 'converted' : rand < weights+0.23 ? 'interested' : rand < weights+0.23+0.45 ? 'not_home' : 'no_thanks';
+    const lat = c.lat + Math.cos(a)*r, lng = c.lng + Math.sin(a)*r;
+    return { lat, lng, outcome, name: c.name, color: c.color, initials: c.initials, time: randomTime(), photoId: Math.floor(Math.random()*900)+100 };
+  });
+}
+
+function randomTime() {
+  const h = 8 + Math.floor(Math.random()*7), m = Math.floor(Math.random()*60);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `May 30, 2026, ${h}:${m.toString().padStart(2,'0')} ${ampm}`;
+}
+
+const allDoors = canvassers.flatMap(c => c.status !== 'offline' ? genDoors(c, c.doors) : []);
+let photoIndex = 0;
+const doorColors = ['#1e3a5f','#1a4731','#4a1942','#3d2b1a','#1f3a3d','#2d3748','#1a365d','#276749'];
+
+function photoSvg(d, w, h) {
+  const bg = doorColors[d.photoId % doorColors.length];
+  return 'data:image/svg+xml,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" style="background:${bg}">` +
+    `<rect x="${w*.28}" y="${h*.1}" width="${w*.44}" height="${h*.65}" rx="5" fill="white" opacity=".13"/>` +
+    `<rect x="${w*.35}" y="${h*.15}" width="${w*.3}" height="${h*.35}" rx="3" fill="white" opacity=".1"/>` +
+    `<circle cx="${w*.65}" cy="${h*.33}" r="${w*.04}" fill="white" opacity=".35"/>` +
+    `<rect x="${w*.3}" y="${h*.55}" width="${w*.4}" height="${h*.14}" rx="2" fill="white" opacity=".08"/>` +
+    `<text x="${w/2}" y="${h*.85}" font-family="system-ui" font-size="${Math.max(10,h*.045)}" fill="white" opacity=".6" text-anchor="middle">${d.name}</text>` +
+    `<text x="${w/2}" y="${h*.93}" font-family="system-ui" font-size="${Math.max(9,h*.038)}" fill="white" opacity=".45" text-anchor="middle">${d.time}</text>` +
+    `</svg>`
+  );
+}
+
+function thumbSrc(d) { return photoSvg(d, 200, 200); }
+function largeSrc(d) { return photoSvg(d, 600, 500); }
+
+function openPhoto(idx) {
+  photoIndex = idx;
+  const d = allDoors[idx];
+  const box = document.getElementById('photo-lightbox');
+  box.style.display = 'flex';
+  document.getElementById('photo-counter').textContent = `${idx+1} / ${allDoors.length}`;
+  document.getElementById('photo-img').src = largeSrc(d);
+  document.getElementById('photo-img').style.background = doorColors[d.photoId % doorColors.length];
+  document.getElementById('photo-canvasser').textContent = d.name;
+  document.getElementById('photo-time').textContent = d.time;
+  document.getElementById('photo-coords').textContent = `${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}`;
+  document.getElementById('photo-outcome').textContent = outcomeLabels[d.outcome];
+  document.getElementById('photo-outcome').style.color = outcomeColors[d.outcome];
+  document.getElementById('photo-streetview').href = `https://www.google.com/maps?q=&layer=c&cbll=${d.lat},${d.lng}`;
+}
+
+function closePhoto() { document.getElementById('photo-lightbox').style.display = 'none'; }
+function prevPhoto() { openPhoto((photoIndex - 1 + allDoors.length) % allDoors.length); }
+function nextPhoto() { openPhoto((photoIndex + 1) % allDoors.length); }
+
+let cvMarkers = {};
+
+let buildingLayer = null;
+let selectedBuilding = null;
+let buildingFetchController = null;
+let lastBuildingZoom = 0;
+
+// ── Map tile layers ──
+let satelliteLayer = null;
+let satelliteLabels = null;
+let exploreLayer = null;
+let currentMapMode = 'satellite';
+
+// ── Live GPS ──
+let liveGpsMarker = null;
+let liveGpsAccuracy = null;
+let liveGpsWatchId = null;
+
+// ── Territory zones (shared so we can do point-in-polygon) ──
+const ZONES = [
+  { coords:[[30.518,-97.700],[30.518,-97.665],[30.504,-97.665],[30.504,-97.700]], color:'#22c55e', name:'Zone A — Downtown' },
+  { coords:[[30.525,-97.680],[30.525,-97.650],[30.510,-97.650],[30.510,-97.680]], color:'#C07830', name:'Zone B — Midtown' },
+  { coords:[[30.510,-97.710],[30.510,-97.685],[30.496,-97.685],[30.496,-97.710]], color:'#f59e0b', name:'Zone C — Westside' },
+  { coords:[[30.527,-97.655],[30.527,-97.632],[30.512,-97.632],[30.512,-97.655]], color:'#6b7280', name:'Zone D — East' },
+];
+
+// Currently logged-in canvasser's assigned zone (simulate zone A for demo)
+const MY_ZONE = ZONES[0];
+
+// Point-in-polygon (ray casting)
+function pointInPolygon(lat, lng, poly) {
+  let inside = false;
+  const vs = poly;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function initMap() {
+  const map = L.map('map', { zoomSnap: 0.5 }).setView([30.506, -97.680], 16);
+  window._map = map;
+
+  // ── Tile layers ──
+  satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles © Esri', maxZoom: 20
+  }).addTo(map);
+
+  satelliteLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 20, opacity: 0.8
+  }).addTo(map);
+
+  exploreLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 20
+  }); // NOT added yet — satellite is default
+
+  // ── Territory zones ──
+  ZONES.forEach(z => {
+    L.polygon(z.coords, { color: z.color, fillColor: z.color, fillOpacity: 0.12, weight: 2, dashArray: '6,4' })
+      .bindTooltip(`<strong>${z.name}</strong>`, { sticky:true }).addTo(map);
+  });
+
+  // Highlight MY_ZONE with a stronger border
+  L.polygon(MY_ZONE.coords, { color: MY_ZONE.color, fillColor: 'transparent', weight: 3, dashArray: null })
+    .bindTooltip('<strong>Your Territory</strong>', { permanent: false }).addTo(map);
+
+  // Door knocks — click opens photo proof
+  allDoors.forEach((d, idx) => {
+    L.circleMarker([d.lat, d.lng], {
+      radius:6, fillColor:outcomeColors[d.outcome], color:'#fff', fillOpacity:0.92, weight:1.5
+    }).on('click', (e) => { e.originalEvent._markerClick = true; openPhoto(idx); }).addTo(map);
+  });
+
+  // Canvasser markers
+  canvassers.filter(c => c.status !== 'offline').forEach(c => {
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:40px;height:40px;border-radius:50%;background:${c.color};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);${c.status==='idle'?'opacity:0.7;':''}">${c.initials}</div>`,
+      iconSize:[40,40], iconAnchor:[20,20]
+    });
+    const m = L.marker([c.lat, c.lng], {icon})
+      .on('click', e => { e.originalEvent._markerClick = true; })
+      .bindPopup(`<strong>${c.name}</strong> <span style="color:${c.status==='active'?'#22c55e':'#f59e0b'}">(${c.status})</span><br/>${c.zone}<br/><strong>${c.doors}</strong> doors · <strong>${c.conversions}</strong> converted<br/><span style="color:#6b7280">${c.dph} doors/hr · Accountability: ${c.accountability}%</span>`)
+      .addTo(map);
+    cvMarkers[c.id] = m;
+  });
+
+  renderMapSidebar();
+
+  // Re-render any persisted flyered pins
+  flyeredHomes.forEach((h, idx) => {
+    const iconHtml = `<div style="position:relative;width:36px;height:36px;"><div style="width:36px;height:36px;border-radius:50%;border:3px solid #22c55e;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.35);"><img src="${h.photo}" style="width:100%;height:100%;object-fit:cover;"/></div><div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#22c55e;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;">✓</div></div>`;
+    const icon = L.divIcon({ className:'', html: iconHtml, iconSize:[36,36], iconAnchor:[18,18] });
+    L.marker([h.lat, h.lng], {icon})
+      .on('click', function(e) { e.originalEvent._markerClick = true; openFlyerLightbox(idx); })
+      .addTo(map);
+  });
+
+  // ── Building footprints ──
+  buildingLayer = L.layerGroup().addTo(map);
+  fetchBuildings();
+  map.on('moveend', () => {
+    if (map.getZoom() >= 16) fetchBuildings();
+    else { buildingLayer.clearLayers(); selectedBuilding = null; hideFlyerPrompt(); }
+  });
+  map.on('zoomend', () => {
+    if (map.getZoom() >= 16) fetchBuildings();
+    else { buildingLayer.clearLayers(); selectedBuilding = null; hideFlyerPrompt(); }
+  });
+
+  // Clicking empty map area deselects
+  map.on('click', function(e) {
+    if (e.originalEvent._markerClick || e.originalEvent._buildingClick) return;
+    deselectBuilding();
+    hideFlyerPrompt();
+  });
+
+  // ── Live GPS tracking ──
+  startLiveGps(map);
+
+  // ── Restore saved territories ──
+  loadPersistedTerritories();
+}
+
+// ── Map mode toggle ──
+function setMapMode(mode) {
+  const map = window._map;
+  if (!map || mode === currentMapMode) return;
+  currentMapMode = mode;
+
+  if (mode === 'satellite') {
+    if (!map.hasLayer(satelliteLayer)) map.addLayer(satelliteLayer);
+    if (!map.hasLayer(satelliteLabels)) map.addLayer(satelliteLabels);
+    if (map.hasLayer(exploreLayer)) map.removeLayer(exploreLayer);
+    document.getElementById('map-mode-satellite').style.background = '#C07830';
+    document.getElementById('map-mode-satellite').style.color = '#fff';
+    document.getElementById('map-mode-explore').style.background = 'var(--white)';
+    document.getElementById('map-mode-explore').style.color = 'var(--text2)';
+  } else {
+    if (map.hasLayer(satelliteLayer)) map.removeLayer(satelliteLayer);
+    if (map.hasLayer(satelliteLabels)) map.removeLayer(satelliteLabels);
+    if (!map.hasLayer(exploreLayer)) map.addLayer(exploreLayer);
+    // Re-add building layer on top
+    if (buildingLayer && !map.hasLayer(buildingLayer)) buildingLayer.addTo(map);
+    document.getElementById('map-mode-explore').style.background = '#C07830';
+    document.getElementById('map-mode-explore').style.color = '#fff';
+    document.getElementById('map-mode-satellite').style.background = 'var(--white)';
+    document.getElementById('map-mode-satellite').style.color = 'var(--text2)';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════════
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendNotification(title, body, tag) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  new Notification(title, { body, icon: '', tag, renotify: true });
+}
+
+// ═══════════════════════════════════════════════
+// CHECK-IN / CHECK-OUT
+// ═══════════════════════════════════════════════
+let shiftActive = false;
+let shiftStart = null;
+let shiftStartLat = null;
+let shiftStartLng = null;
+let shiftTimer = null;
+let shiftFlyeredAtStart = 0;
+const shiftHistory = JSON.parse(localStorage.getItem('shiftHistory') || '[]');
+
+function handleCheckInOut() {
+  if (!shiftActive) {
+    // Request notification permission on first check-in
+    requestNotificationPermission();
+    navigator.geolocation.getCurrentPosition(pos => {
+      checkIn(pos.coords.latitude, pos.coords.longitude);
+    }, () => checkIn(null, null), { enableHighAccuracy: true, timeout: 8000 });
+  } else {
+    checkOut();
+  }
+}
+
+function checkIn(lat, lng) {
+  shiftActive = true;
+  shiftStart = new Date();
+  shiftStartLat = lat;
+  shiftStartLng = lng;
+  shiftFlyeredAtStart = flyeredHomes.length;
+
+  // Update button
+  const btn = document.getElementById('checkin-btn');
+  btn.textContent = '⏹ Check Out';
+  btn.style.background = '#ef4444';
+
+  // Start shift timer display
+  updateShiftTimer();
+  shiftTimer = setInterval(updateShiftTimer, 60000);
+
+  // Show check-in banner on map
+  showShiftBanner();
+
+  // Persist active shift
+  localStorage.setItem('activeShift', JSON.stringify({ start: shiftStart.toISOString(), lat, lng, flyeredAtStart: shiftFlyeredAtStart }));
+
+  sendNotification('Shift Started ✅', `Checked in at ${shiftStart.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}. Good luck out there!`, 'checkin');
+  showToast('✅ Checked in — shift started');
+}
+
+function checkOut() {
+  const end = new Date();
+  const duration = Math.round((end - shiftStart) / 60000); // minutes
+  const homesThisShift = flyeredHomes.length - shiftFlyeredAtStart;
+
+  // Save to history
+  const record = {
+    date: shiftStart.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    checkIn: shiftStart.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+    checkOut: end.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+    durationMin: duration,
+    homesFlyed: homesThisShift,
+    lat: shiftStartLat, lng: shiftStartLng
+  };
+  shiftHistory.unshift(record);
+  localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory.slice(0,50)));
+  localStorage.removeItem('activeShift');
+
+  shiftActive = false;
+  clearInterval(shiftTimer);
+
+  const btn = document.getElementById('checkin-btn');
+  btn.textContent = '▶ Check In';
+  btn.style.background = '#22c55e';
+
+  hideShiftBanner();
+  showCheckOutSummary(record);
+  sendNotification('Shift Ended 🏁', `${duration} min · ${homesThisShift} homes flyered. Great work!`, 'checkout');
+}
+
+function updateShiftTimer() {
+  const el = document.getElementById('shift-timer');
+  if (!el || !shiftStart) return;
+  const mins = Math.round((Date.now() - shiftStart) / 60000);
+  const h = Math.floor(mins/60), m = mins % 60;
+  const homesThisShift = flyeredHomes.length - shiftFlyeredAtStart;
+  el.textContent = `${h>0?h+'h ':''}${m}m · ${homesThisShift} homes`;
+}
+
+function showShiftBanner() {
+  let banner = document.getElementById('shift-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'shift-banner';
+    banner.style.cssText = 'position:absolute;bottom:40px;left:12px;z-index:1000;background:#1e293b;color:#fff;padding:8px 14px;border-radius:12px;font-size:12px;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:none;';
+    document.getElementById('map').appendChild(banner);
+  }
+  banner.innerHTML = `<span style="color:#22c55e;">● ON SHIFT</span> &nbsp;<span id="shift-timer">0m · 0 homes</span>`;
+  banner.style.display = 'block';
+}
+
+function hideShiftBanner() {
+  const b = document.getElementById('shift-banner');
+  if (b) b.style.display = 'none';
+}
+
+function showCheckOutSummary(record) {
+  let modal = document.getElementById('checkout-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'checkout-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3500;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(modal);
+  }
+  const h = Math.floor(record.durationMin/60), m = record.durationMin%60;
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:30px;width:340px;max-width:92vw;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.22);">
+      <div style="font-size:40px;margin-bottom:10px;">🏁</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">Shift Complete!</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:22px;">${record.date}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px;">
+        <div style="background:#FDF5EB;border-radius:12px;padding:14px;">
+          <div style="font-size:22px;font-weight:800;color:#C07830;">${h>0?h+'h ':''}${m}m</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">Duration</div>
+        </div>
+        <div style="background:#f0fdf4;border-radius:12px;padding:14px;">
+          <div style="font-size:22px;font-weight:800;color:#22c55e;">${record.homesFlyed}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">Homes Flyered</div>
+        </div>
+        <div style="background:#fafafa;border-radius:12px;padding:14px;">
+          <div style="font-size:14px;font-weight:700;color:#374151;">${record.checkIn}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">Check-in</div>
+        </div>
+        <div style="background:#fafafa;border-radius:12px;padding:14px;">
+          <div style="font-size:14px;font-weight:700;color:#374151;">${record.checkOut}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">Check-out</div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('checkout-modal').style.display='none';" style="width:100%;padding:12px;background:#1e293b;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Done</button>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+// Restore active shift across page refresh
+(function restoreActiveShift() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('activeShift') || 'null');
+    if (!saved) return;
+    shiftActive = true;
+    shiftStart = new Date(saved.start);
+    shiftStartLat = saved.lat;
+    shiftStartLng = saved.lng;
+    shiftFlyeredAtStart = saved.flyeredAtStart || 0;
+    const btn = document.getElementById('checkin-btn');
+    if (btn) { btn.textContent = '⏹ Check Out'; btn.style.background = '#ef4444'; }
+    // Banner will be added after map loads — wait for DOM
+    setTimeout(() => { showShiftBanner(); updateShiftTimer(); }, 1000);
+    shiftTimer = setInterval(updateShiftTimer, 60000);
+  } catch(e) {}
+})();
+
+// ── Live GPS ──
+let lastGpsLat = null, lastGpsLng = null, lastMovedAt = Date.now();
+let wasInZone = true;
+let idleNotifSent = false;
+
+function startLiveGps(map) {
+  if (!navigator.geolocation) return;
+
+  const pulseIcon = L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:20px;height:20px;">
+      <div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.25);animation:gps-ring 1.8s ease-out infinite;"></div>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#3b82f6;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,0.4);"></div>
+    </div>`,
+    iconSize: [20, 20], iconAnchor: [10, 10]
+  });
+
+  liveGpsWatchId = navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const acc = pos.coords.accuracy;
+
+    if (!liveGpsMarker) {
+      liveGpsMarker = L.marker([lat, lng], { icon: pulseIcon, zIndexOffset: 500 })
+        .bindTooltip('📍 You', { permanent: false }).addTo(map);
+      liveGpsAccuracy = L.circle([lat, lng], { radius: acc, color:'#3b82f6', fillColor:'#D4A56A', fillOpacity:0.15, weight:1 }).addTo(map);
+    } else {
+      liveGpsMarker.setLatLng([lat, lng]);
+      liveGpsAccuracy.setLatLng([lat, lng]).setRadius(acc);
+    }
+
+    // Idle detection — reset timer if moved more than 15m
+    if (lastGpsLat !== null && distMetres(lastGpsLat, lastGpsLng, lat, lng) > 15) {
+      lastMovedAt = Date.now();
+      idleNotifSent = false;
+    }
+    lastGpsLat = lat; lastGpsLng = lng;
+
+    // Out-of-territory warning + notification
+    const inZone = pointInPolygon(lat, lng, MY_ZONE.coords);
+    let warn = document.getElementById('territory-warn');
+    if (!inZone) {
+      if (!warn) {
+        warn = document.createElement('div');
+        warn.id = 'territory-warn';
+        warn.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:#dc2626;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,0.3);white-space:nowrap;';
+        warn.innerHTML = '⚠️ Outside your territory — return to ' + MY_ZONE.name;
+        document.getElementById('map').appendChild(warn);
+      }
+      warn.style.display = 'block';
+      // Fire notification only on transition in→out
+      if (wasInZone) {
+        sendNotification('⚠️ Left Territory', `You have moved outside ${MY_ZONE.name}. Please return to your assigned zone.`, 'territory-exit');
+      }
+      wasInZone = false;
+    } else {
+      if (warn) warn.style.display = 'none';
+      if (!wasInZone) sendNotification('✅ Back in Territory', `You are back in ${MY_ZONE.name}.`, 'territory-return');
+      wasInZone = true;
+    }
+  }, null, { enableHighAccuracy: true, maximumAge: 5000 });
+
+  // Idle check every 2 minutes
+  setInterval(() => {
+    if (!shiftActive) return;
+    const idleMin = Math.round((Date.now() - lastMovedAt) / 60000);
+    if (idleMin >= 10 && !idleNotifSent) {
+      idleNotifSent = true;
+      sendNotification('⏸ You seem idle', `No movement detected for ${idleMin} minutes. Still out there?`, 'idle');
+      showToast(`⚠️ No movement for ${idleMin} min — are you still active?`);
+    }
+  }, 120000);
+
+  // Inject GPS pulse animation
+  const s = document.createElement('style');
+  s.textContent = `@keyframes gps-ring { 0%{transform:scale(1);opacity:0.8;} 100%{transform:scale(3.5);opacity:0;} }`;
+  document.head.appendChild(s);
+}
+
+function fetchBuildings() {
+  const map = window._map;
+  if (!map || map.getZoom() < 16) return;
+  const b = map.getBounds();
+  const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+
+  // Abort previous request
+  if (buildingFetchController) buildingFetchController.abort();
+  buildingFetchController = new AbortController();
+
+  const query = `[out:json][timeout:15];(way["building"](${bbox});relation["building"](${bbox}););out geom;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+  showBuildingLoader(true);
+  fetch(url, { signal: buildingFetchController.signal })
+    .then(r => r.json())
+    .then(data => {
+      showBuildingLoader(false);
+      renderBuildings(data.elements || []);
+    })
+    .catch(err => {
+      if (err.name !== 'AbortError') showBuildingLoader(false);
+    });
+}
+
+function renderBuildings(elements) {
+  buildingLayer.clearLayers();
+  updateZoneBuildingCount(elements);
+  elements.forEach(el => {
+    let coords = null;
+    if (el.type === 'way' && el.geometry) {
+      coords = el.geometry.map(p => [p.lat, p.lon]);
+    } else if (el.type === 'relation' && el.members) {
+      const outer = el.members.find(m => m.role === 'outer' && m.geometry);
+      if (outer) coords = outer.geometry.map(p => [p.lat, p.lon]);
+    }
+    if (!coords || coords.length < 3) return;
+
+    // Check if already flyered (local) or knocked by canvasser (live API)
+    const center = coords.reduce((acc,c) => [acc[0]+c[0], acc[1]+c[1]], [0,0]).map(v => v/coords.length);
+    const alreadyFlyered = flyeredHomes.some(h => {
+      const dlat = h.lat - center[0], dlng = h.lng - center[1];
+      return Math.sqrt(dlat*dlat + dlng*dlng) < 0.0002;
+    });
+    // Also check live door knocks from API
+    const nearbyKnock = (window._liveDoors || []).find(d => {
+      const dlat = d.lat - center[0], dlng = d.lng - center[1];
+      return Math.sqrt(dlat*dlat + dlng*dlng) < 0.0002;
+    });
+    const isKnocked = alreadyFlyered || !!nearbyKnock;
+
+    const poly = L.polygon(coords, {
+      color: isKnocked ? '#22c55e' : '#D4A56A',
+      fillColor: isKnocked ? '#22c55e' : '#D4A56A',
+      fillOpacity: isKnocked ? 0.35 : 0.18,
+      weight: isKnocked ? 2.5 : 1.5,
+      _buildingCoords: coords,
+      _center: center,
+      _flyered: isKnocked,
+      _knock: nearbyKnock || null   // attached knock data (has photo_url, canvasser_name, etc.)
+    });
+
+    poly.on('click', function(e) {
+      e.originalEvent._buildingClick = true;
+      L.DomEvent.stopPropagation(e);
+      selectBuilding(poly, center);
+    });
+    poly.on('mouseover', function() {
+      if (poly !== selectedBuilding)
+        poly.setStyle({ fillOpacity: isKnocked ? 0.5 : 0.38, weight: 2.5 });
+    });
+    poly.on('mouseout', function() {
+      if (poly !== selectedBuilding)
+        poly.setStyle({ fillOpacity: isKnocked ? 0.35 : 0.18, weight: isKnocked ? 2.5 : 1.5 });
+    });
+
+    buildingLayer.addLayer(poly);
+  });
+}
+
+function selectBuilding(poly, center) {
+  deselectBuilding();
+  selectedBuilding = poly;
+  poly.setStyle({ color:'#f59e0b', fillColor:'#fbbf24', fillOpacity:0.45, weight:3 });
+  showFlyerPrompt(center[0], center[1], poly.options._flyered, poly.options._knock);
+}
+
+function deselectBuilding() {
+  if (!selectedBuilding) return;
+  const fl = selectedBuilding.options._flyered;
+  selectedBuilding.setStyle({
+    color: fl ? '#22c55e' : '#D4A56A',
+    fillColor: fl ? '#22c55e' : '#D4A56A',
+    fillOpacity: fl ? 0.35 : 0.18,
+    weight: fl ? 2.5 : 1.5
+  });
+  selectedBuilding = null;
+}
+
+function showFlyerPrompt(lat, lng, alreadyFlyered, knock) {
+  let prompt = document.getElementById('flyer-map-prompt');
+  if (!prompt) {
+    prompt = document.createElement('div');
+    prompt.id = 'flyer-map-prompt';
+    prompt.style.cssText = 'position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.22);padding:14px 20px;display:flex;align-items:center;gap:14px;min-width:280px;max-width:340px;pointer-events:all;';
+    document.getElementById('map').appendChild(prompt);
+  }
+  prompt._lat = lat; prompt._lng = lng;
+
+  if (alreadyFlyered) {
+    const hasPhoto = knock && knock.photo_url;
+    const photoThumb = hasPhoto
+      ? `<img src="${API}${knock.photo_url}" style="width:52px;height:52px;object-fit:cover;border-radius:10px;flex-shrink:0;cursor:pointer;border:2px solid #22c55e;" onclick="openLiveDoorPhoto(window._selectedKnock)" />`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div>`;
+    const who = knock ? knock.canvasser_name : 'canvasser';
+    const when = knock ? new Date(knock.knocked_at*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+    window._selectedKnock = knock;
+    prompt.innerHTML = `
+      ${photoThumb}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:#15803d;">Already Knocked ✓</div>
+        <div style="font-size:12px;color:#6b7280;">${who}${when?' · '+when:''}</div>
+        ${hasPhoto?`<div style="font-size:11px;color:#C07830;margin-top:2px;cursor:pointer;" onclick="openLiveDoorPhoto(window._selectedKnock)">View photo →</div>`:''}
+      </div>
+      <button onclick="hideFlyerPrompt();deselectBuilding();" style="padding:6px 12px;border:none;background:#f3f4f6;border-radius:8px;font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>
+    `;
+  } else {
+    prompt.innerHTML = `
+      <div style="width:36px;height:36px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📍</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">Log Flyered Home</div>
+        <div style="font-size:12px;color:#6b7280;">Take a photo to confirm</div>
+      </div>
+      <button onclick="startFlyerFromBuilding()" style="padding:8px 16px;border:none;background:#C07830;color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📸 Photo</button>
+    `;
+  }
+  prompt.style.display = 'flex';
+}
+
+function hideFlyerPrompt() {
+  const p = document.getElementById('flyer-map-prompt');
+  if (p) p.style.display = 'none';
+}
+
+function startFlyerFromBuilding() {
+  const p = document.getElementById('flyer-map-prompt');
+  if (!p) return;
+  const buildingLat = p._lat;
+  const buildingLng = p._lng;
+  hideFlyerPrompt();
+
+  // Territory check — block if building is outside assigned zone
+  if (!pointInPolygon(buildingLat, buildingLng, MY_ZONE.coords)) {
+    showDupeError('🚫 Outside Your Territory', `This home is outside your assigned zone (${MY_ZONE.name}). You can only flyer homes within your territory.`);
+    deselectBuilding();
+    return;
+  }
+
+  showToast('📡 Getting your GPS location…');
+
+  if (!navigator.geolocation) {
+    pendingFlyerLat = buildingLat; pendingFlyerLng = buildingLng;
+    openFlyerCamera();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      // Use real GPS coords — more accurate than map tap
+      pendingFlyerLat = pos.coords.latitude;
+      pendingFlyerLng = pos.coords.longitude;
+      openFlyerCamera();
+    },
+    () => {
+      // Fallback to building centre if GPS denied
+      pendingFlyerLat = buildingLat; pendingFlyerLng = buildingLng;
+      openFlyerCamera();
+    },
+    { enableHighAccuracy: true, timeout: 6000 }
+  );
+}
+
+function openFlyerCamera() {
+  const input = document.getElementById('flyer-photo-input');
+  input.value = '';
+  input.setAttribute('capture', 'environment');
+  input.click();
+}
+
+function showBuildingLoader(show) {
+  let el = document.getElementById('building-loader');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'building-loader';
+    el.style.cssText = 'position:absolute;top:12px;right:12px;z-index:1000;background:rgba(0,0,0,0.65);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;';
+    el.textContent = '⟳ Loading homes…';
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.appendChild(el);
+  }
+  el.style.display = show ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════
+// SIDEBAR TAB SWITCHING
+// ═══════════════════════════════════════════════
+function switchSidebarTab(tab) {
+  ['team','route','zones'].forEach(t => {
+    document.getElementById('sidebar-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('stab-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab === 'zones') renderZoneStats();
+}
+
+// ═══════════════════════════════════════════════
+// ZONE STATS — coverage % + flyer count estimate
+// ═══════════════════════════════════════════════
+// Store building counts per zone as they're fetched
+const zoneBuildingCounts = {};
+
+function updateZoneBuildingCount(elements) {
+  // After fetching buildings, tally how many fall in each zone
+  ZONES.forEach(z => { zoneBuildingCounts[z.name] = 0; });
+  elements.forEach(el => {
+    let coords = null;
+    if (el.type === 'way' && el.geometry) coords = el.geometry.map(p => [p.lat, p.lon]);
+    else if (el.type === 'relation' && el.members) {
+      const outer = el.members.find(m => m.role === 'outer' && m.geometry);
+      if (outer) coords = outer.geometry.map(p => [p.lat, p.lon]);
+    }
+    if (!coords || coords.length < 3) return;
+    const center = coords.reduce((acc,c) => [acc[0]+c[0], acc[1]+c[1]], [0,0]).map(v => v/coords.length);
+    ZONES.forEach(z => {
+      if (pointInPolygon(center[0], center[1], z.coords))
+        zoneBuildingCounts[z.name] = (zoneBuildingCounts[z.name] || 0) + 1;
+    });
+  });
+}
+
+function renderZoneStats() {
+  const el = document.getElementById('zone-stats-list');
+  const allZones = ZONES; // includes both built-in and custom
+  el.innerHTML = allZones.map(z => {
+    // Custom zones use Overpass-counted houseCount; built-in use zoneBuildingCounts
+    const total = (z.houseCount != null) ? z.houseCount : (zoneBuildingCounts[z.name] || null);
+    const flyered = flyeredHomes.filter(h => pointInPolygon(h.lat, h.lng, z.coords)).length;
+    const pct = total > 0 ? Math.round(flyered/total*100) : 0;
+    const estFlyers = total != null ? Math.ceil(total * 1.15 / 10) * 10 : '—';
+    const assignedTo = z.canvasserName ? `<span style="font-size:10px;color:var(--muted);">👤 ${z.canvasserName}</span>` : '';
+    return `<div class="zone-stat-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${z.color};flex-shrink:0;"></div>
+        <span style="font-size:13px;font-weight:700;flex:1;">${z.name}</span>
+        <span style="font-size:12px;font-weight:700;color:${pct>=80?'#15803d':pct>=50?'#92400e':'#374151'}">${pct}%</span>
+      </div>
+      ${assignedTo ? `<div style="margin-bottom:5px;">${assignedTo}</div>` : ''}
+      <div class="zone-stat-bar"><div class="zone-stat-bar-fill" style="width:${pct}%;background:${z.color};"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px;">
+        <span><strong>${flyered}</strong> flyered / <strong>${total != null ? total : '…'}</strong> homes</span>
+        <span>📦 ~<strong>${estFlyers}</strong> flyers</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// ROUTE OPTIMIZATION (nearest-neighbor TSP)
+// ═══════════════════════════════════════════════
+let routeLayer = null;
+let routeMarkers = [];
+
+function buildRoute() {
+  const map = window._map;
+  if (!map) return;
+
+  // Collect unflyered building centres in MY_ZONE from current buildingLayer
+  const stops = [];
+  buildingLayer.eachLayer(poly => {
+    const c = poly.options._center;
+    if (!c) return;
+    if (!pointInPolygon(c[0], c[1], MY_ZONE.coords)) return;
+    if (poly.options._flyered) return;
+    stops.push({ lat: c[0], lng: c[1] });
+  });
+
+  if (stops.length === 0) {
+    document.getElementById('route-list').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">No unvisited homes in your zone visible at this zoom. Zoom in to load homes first.</div>';
+    return;
+  }
+
+  // Start from current GPS position or zone centre
+  let startLat = MY_ZONE.coords.reduce((a,c)=>a+c[0],0)/MY_ZONE.coords.length;
+  let startLng = MY_ZONE.coords.reduce((a,c)=>a+c[1],0)/MY_ZONE.coords.length;
+  if (liveGpsMarker) {
+    const pos = liveGpsMarker.getLatLng();
+    startLat = pos.lat; startLng = pos.lng;
+  }
+
+  // Nearest-neighbor
+  const route = [];
+  const remaining = [...stops];
+  let cur = { lat: startLat, lng: startLng };
+  while (remaining.length > 0) {
+    let bestIdx = 0, bestDist = Infinity;
+    remaining.forEach((s, i) => {
+      const d = distMetres(cur.lat, cur.lng, s.lat, s.lng);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    cur = remaining.splice(bestIdx, 1)[0];
+    route.push(cur);
+  }
+
+  // Draw route on map
+  if (routeLayer) map.removeLayer(routeLayer);
+  routeMarkers.forEach(m => map.removeLayer(m));
+  routeMarkers = [];
+
+  const latLngs = route.map(s => [s.lat, s.lng]);
+  routeLayer = L.polyline(latLngs, { color:'#f59e0b', weight:3, dashArray:'8,6', opacity:0.85 }).addTo(map);
+
+  route.slice(0, 20).forEach((s, i) => {
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:22px;height:22px;border-radius:50%;background:#f59e0b;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.3);">${i+1}</div>`,
+      iconSize:[22,22], iconAnchor:[11,11]
+    });
+    const m = L.marker([s.lat, s.lng], {icon}).addTo(map);
+    routeMarkers.push(m);
+  });
+
+  // Render sidebar list
+  const totalDist = route.reduce((acc, s, i) => {
+    if (i===0) return acc + distMetres(startLat, startLng, s.lat, s.lng);
+    return acc + distMetres(route[i-1].lat, route[i-1].lng, s.lat, s.lng);
+  }, 0);
+
+  document.getElementById('route-list').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+      <strong>${route.length}</strong> homes · ~<strong>${Math.round(totalDist/1000*10)/10} km</strong> walking
+      <button onclick="clearRoute()" style="float:right;background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;">✕ Clear</button>
+    </div>
+    ${route.slice(0,20).map((s,i) => `
+      <div class="route-stop" onclick="window._map.setView([${s.lat},${s.lng}],18,{animate:true});" style="cursor:pointer;">
+        <div class="route-stop-num">${i+1}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</div>
+          <div style="font-size:11px;color:var(--muted);">${i===0?Math.round(distMetres(startLat,startLng,s.lat,s.lng))+'m from you':Math.round(distMetres(route[i-1].lat,route[i-1].lng,s.lat,s.lng))+'m from prev'}</div>
+        </div>
+        <div style="font-size:16px;">🏠</div>
+      </div>`).join('')}
+    ${route.length > 20 ? `<div style="text-align:center;font-size:12px;color:var(--muted);padding:8px 0;">+ ${route.length-20} more stops</div>` : ''}
+  `;
+}
+
+function clearRoute() {
+  const map = window._map;
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  routeMarkers.forEach(m => map.removeLayer(m));
+  routeMarkers = [];
+  document.getElementById('route-list').innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0;">Route cleared.</div>';
+}
+
+// ═══════════════════════════════════════════════
+// HEATMAP
+// ═══════════════════════════════════════════════
+let heatLayer = null;
+
+function toggleHeatmap(on) {
+  const map = window._map;
+  if (!map) return;
+  if (on) {
+    const pts = flyeredHomes.map(h => [h.lat, h.lng, 1]);
+    if (pts.length === 0) { showToast('No flyered homes to show yet.'); document.getElementById('heatmap-toggle').checked=false; return; }
+    heatLayer = L.heatLayer(pts, { radius:30, blur:20, maxZoom:18, gradient:{0.4:'#D4A56A',0.65:'#fbbf24',1:'#ef4444'} }).addTo(map);
+  } else {
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// OFFLINE MODE + PERSISTENCE
+// ═══════════════════════════════════════════════
+// Load persisted flyered homes on startup
+(function loadPersistedHomes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('flyeredHomes') || '[]');
+    saved.forEach(h => flyeredHomes.push(h));
+    if (flyeredHomes.length > 0) {
+      document.getElementById('s-flyered').textContent = flyeredHomes.length;
+    }
+  } catch(e) {}
+})();
+
+function persistFlyeredHomes() {
+  try { localStorage.setItem('flyeredHomes', JSON.stringify(flyeredHomes)); } catch(e) {}
+}
+
+// Offline/online banner
+function updateOnlineBanner() {
+  let el = document.getElementById('offline-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'offline-banner';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:5000;background:#1e293b;color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;pointer-events:none;transition:transform 0.3s;';
+    document.body.appendChild(el);
+  }
+  if (!navigator.onLine) {
+    el.innerHTML = '📶 Offline — pins will save locally and sync when back online';
+    el.style.transform = 'translateY(0)';
+  } else {
+    el.style.transform = 'translateY(100%)';
+  }
+}
+window.addEventListener('online', updateOnlineBanner);
+window.addEventListener('offline', updateOnlineBanner);
+updateOnlineBanner();
+
+function renderMapSidebar() {
+  const teamHtml = canvassers.map(c => `
+    <div class="m-card ${c.status==='idle'?'idle':''}" id="mc-${c.id}" onclick="focusCanvasser(${c.id})">
+      <div class="m-card-top">
+        <div class="m-avatar" style="background:${c.color}20;color:${c.color}">${c.initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="m-name">${c.name}</div>
+          <div class="m-zone">${c.zone}</div>
+        </div>
+        <div class="status-pill ${c.status}">${c.status==='active'?'● Active':c.status==='idle'?'● Idle':'○ Offline'}</div>
+      </div>
+      <div class="m-stats">
+        <span><strong>${c.doors}</strong> doors</span>
+        <span><strong>${c.conversions}</strong> conv.</span>
+        <span><strong>${c.dph||'—'}</strong>/hr</span>
+        <span style="margin-left:auto;font-size:11px;color:${c.accountability>=80?'#15803d':c.accountability>=60?'#92400e':'#991b1b'}">⚡ ${c.accountability}%</span>
+      </div>
+      ${c.status==='idle'?`<div class="idle-warn">⚠️ Idle ${c.idleMin} min — no GPS activity</div>`:''}
+    </div>
+  `).join('');
+
+  const histHtml = shiftHistory.length === 0
+    ? `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">No shifts yet — check in to start tracking.</div>`
+    : shiftHistory.slice(0,10).map(r => {
+        const h = Math.floor(r.durationMin/60), m = r.durationMin%60;
+        return `<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-weight:700;color:var(--text);">${r.date}</span>
+            <span style="color:#22c55e;font-weight:700;">${r.homesFlyed} homes</span>
+          </div>
+          <div style="display:flex;gap:12px;color:var(--muted);">
+            <span>⏰ ${r.checkIn} – ${r.checkOut}</span>
+            <span>⏱ ${h>0?h+'h ':''}${m}m</span>
+          </div>
+        </div>`;
+      }).join('');
+
+  document.getElementById('map-canvasser-list').innerHTML = `
+    ${teamHtml}
+    <div style="margin-top:14px;padding-top:12px;border-top:2px solid var(--border);">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">📋 My Shift History</div>
+      ${histHtml}
+    </div>`;
+}
+
+function focusCanvasser(id) {
+  document.querySelectorAll('.m-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`mc-${id}`).classList.add('selected');
+  const c = canvassers.find(x => x.id===id);
+  if (c && cvMarkers[id] && window._map) {
+    window._map.setView([c.lat, c.lng], 15, {animate:true});
+    cvMarkers[id].openPopup();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// FLYERED HOMES
+// ═══════════════════════════════════════════════
+const flyeredHomes = [];       // confirmed flyered entries
+let pendingFlyerLat = null;
+let pendingFlyerLng = null;
+let pendingFlyerMarker = null;
+
+function startFlyerLog(tapLat, tapLng) {
+  showToast('📡 Getting your GPS location…');
+  if (!navigator.geolocation) {
+    pendingFlyerLat = tapLat; pendingFlyerLng = tapLng;
+    openFlyerCamera(); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => { pendingFlyerLat = pos.coords.latitude; pendingFlyerLng = pos.coords.longitude; openFlyerCamera(); },
+    ()  => { pendingFlyerLat = tapLat; pendingFlyerLng = tapLng; openFlyerCamera(); },
+    { enableHighAccuracy: true, timeout: 6000 }
+  );
+}
+
+// ── Image fingerprinting (16x16 greyscale hash) ──
+function imageFingerprint(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = function() {
+      const SIZE = 16;
+      const c = document.createElement('canvas');
+      c.width = SIZE; c.height = SIZE;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      const px = ctx.getImageData(0, 0, SIZE, SIZE).data;
+      const hash = [];
+      for (let i = 0; i < px.length; i += 4) {
+        hash.push(Math.round((px[i]*0.299 + px[i+1]*0.587 + px[i+2]*0.114) / 16));
+      }
+      resolve(hash.join(','));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function fingerprintDistance(a, b) {
+  if (!a || !b) return 999;
+  const av = a.split(',').map(Number);
+  const bv = b.split(',').map(Number);
+  let diff = 0;
+  for (let i = 0; i < av.length; i++) diff += Math.abs(av[i] - bv[i]);
+  return diff / av.length; // avg brightness diff per pixel (0–16 scale)
+}
+
+// Haversine distance in metres
+function distMetres(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+const DUPE_LOCATION_METRES = 20;   // same home if within 20 m
+const DUPE_PHOTO_THRESHOLD = 1.2;  // avg pixel diff — catches reused photos
+
+function onFlyerPhotoSelected(event) {
+  const file = event.target.files[0];
+  if (!file || pendingFlyerLat === null) {
+    if (pendingFlyerMarker) { window._map.removeLayer(pendingFlyerMarker); pendingFlyerMarker = null; }
+    return;
+  }
+
+  const lat = pendingFlyerLat;
+  const lng = pendingFlyerLng;
+
+  // 0. Territory check — GPS location must be inside assigned zone
+  if (!pointInPolygon(lat, lng, MY_ZONE.coords)) {
+    pendingFlyerLat = null; pendingFlyerLng = null;
+    showDupeError('🚫 Outside Your Territory', `Your current GPS location is outside your assigned zone (${MY_ZONE.name}). Move back into your territory to log homes.`);
+    return;
+  }
+
+  // 1. Location duplicate check — before even reading the photo
+  const nearbyHome = flyeredHomes.find(h => distMetres(lat, lng, h.lat, h.lng) < DUPE_LOCATION_METRES);
+  if (nearbyHome) {
+    pendingFlyerLat = null; pendingFlyerLng = null;
+    showDupeError('📍 This home is already logged', `A flyer was recorded at this address on ${nearbyHome.time}.`);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const dataUrl = e.target.result;
+
+    // 2. Photo duplicate check — detect reused images
+    const fp = await imageFingerprint(dataUrl);
+    const dupePhoto = flyeredHomes.find(h => fingerprintDistance(fp, h.fingerprint) < DUPE_PHOTO_THRESHOLD);
+    if (dupePhoto) {
+      pendingFlyerLat = null; pendingFlyerLng = null;
+      showDupeError('📷 Duplicate photo detected', `This photo was already used at ${dupePhoto.address} on ${dupePhoto.time}. Please take a new photo at this location.`);
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}) + ' · ' + now.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json())
+      .then(geo => {
+        const address = geo.display_name ? geo.display_name.split(',').slice(0,2).join(',').trim() : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        confirmFlyerHome(lat, lng, dataUrl, fp, timeStr, address);
+      })
+      .catch(() => {
+        confirmFlyerHome(lat, lng, dataUrl, fp, timeStr, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      });
+  };
+  reader.readAsDataURL(file);
+}
+
+function showDupeError(title, msg) {
+  let el = document.getElementById('flyer-dupe-alert');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'flyer-dupe-alert';
+    el.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:4000;background:#fff;border:2px solid #ef4444;border-radius:14px;box-shadow:0 6px 28px rgba(0,0,0,0.18);padding:18px 22px;max-width:340px;width:90%;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div style="display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-size:22px;flex-shrink:0;">🚫</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;color:#dc2626;margin-bottom:4px;">${title}</div>
+        <div style="font-size:13px;color:#374151;line-height:1.5;">${msg}</div>
+      </div>
+    </div>
+    <button onclick="document.getElementById('flyer-dupe-alert').style.display='none';" style="margin-top:14px;width:100%;padding:8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:13px;font-weight:600;color:#dc2626;cursor:pointer;">Got it</button>
+  `;
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+function confirmFlyerHome(lat, lng, photoDataUrl, fingerprint, timeStr, address) {
+  // Remove pending marker
+  if (pendingFlyerMarker) { window._map.removeLayer(pendingFlyerMarker); pendingFlyerMarker = null; }
+
+  const idx = flyeredHomes.length;
+  const entry = { lat, lng, photo: photoDataUrl, fingerprint, time: timeStr, address, canvasser: 'You' };
+  flyeredHomes.push(entry);
+
+  // Confirmed pin — green with photo thumbnail
+  const iconHtml = `<div style="position:relative;width:36px;height:36px;">
+    <div style="width:36px;height:36px;border-radius:50%;border:3px solid #22c55e;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.35);">
+      <img src="${photoDataUrl}" style="width:100%;height:100%;object-fit:cover;"/>
+    </div>
+    <div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#22c55e;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;">✓</div>
+  </div>`;
+
+  const icon = L.divIcon({ className:'', html: iconHtml, iconSize:[36,36], iconAnchor:[18,18] });
+  const marker = L.marker([lat, lng], {icon})
+    .on('click', function(e) { e.originalEvent._markerClick = true; openFlyerLightbox(idx); })
+    .addTo(window._map);
+
+  // Update counter
+  document.getElementById('s-flyered').textContent = flyeredHomes.length;
+
+  // Refresh building outlines so confirmed home turns green
+  deselectBuilding();
+  hideFlyerPrompt();
+  if (window._map && window._map.getZoom() >= 16) fetchBuildings();
+
+  // Persist to localStorage
+  persistFlyeredHomes();
+
+  // Update heatmap if visible
+  if (heatLayer && window._map) {
+    window._map.removeLayer(heatLayer);
+    heatLayer = L.heatLayer(flyeredHomes.map(h=>[h.lat,h.lng,1]),{radius:30,blur:20,maxZoom:18,gradient:{0.4:'#D4A56A',0.65:'#fbbf24',1:'#ef4444'}}).addTo(window._map);
+  }
+
+  // Brief toast
+  showToast(`📍 Flyered home logged! (${flyeredHomes.length} total)`);
+
+  pendingFlyerLat = null;
+  pendingFlyerLng = null;
+}
+
+function openLiveDoorPhoto(knock) {
+  if (!knock || !knock.photo_url) return;
+  document.getElementById('flyer-lb-img').src = API + knock.photo_url;
+  document.getElementById('flyer-lb-address').textContent = knock.address || `${knock.lat.toFixed(5)}, ${knock.lng.toFixed(5)}`;
+  document.getElementById('flyer-lb-canvasser').textContent = knock.canvasser_name || '—';
+  document.getElementById('flyer-lb-time').textContent = new Date(knock.knocked_at*1000).toLocaleString([],{dateStyle:'medium',timeStyle:'short'});
+  document.getElementById('flyer-lb-coords').textContent = `${knock.lat.toFixed(5)}, ${knock.lng.toFixed(5)}`;
+  document.getElementById('flyer-lb-sv').href = `https://www.google.com/maps?q=&layer=c&cbll=${knock.lat},${knock.lng}`;
+  document.getElementById('flyer-lightbox').style.display = 'flex';
+}
+
+function openFlyerLightbox(idx) {
+  const d = flyeredHomes[idx];
+  document.getElementById('flyer-lb-img').src = d.photo;
+  document.getElementById('flyer-lb-address').textContent = d.address;
+  document.getElementById('flyer-lb-canvasser').textContent = d.canvasser;
+  document.getElementById('flyer-lb-time').textContent = d.time;
+  document.getElementById('flyer-lb-coords').textContent = `${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}`;
+  document.getElementById('flyer-lb-sv').href = `https://www.google.com/maps?q=&layer=c&cbll=${d.lat},${d.lng}`;
+  const lb = document.getElementById('flyer-lightbox');
+  lb.style.display = 'flex';
+}
+
+function closeFlyerLightbox() {
+  document.getElementById('flyer-lightbox').style.display = 'none';
+}
+
+function showToast(msg) {
+  let t = document.getElementById('flyer-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'flyer-toast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:600;z-index:3000;pointer-events:none;transition:opacity 0.4s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+}
+
+// ── Pulse animation for pending pin ──
+(function(){
+  const s = document.createElement('style');
+  s.textContent = `@keyframes pulse-pin { from { box-shadow:0 0 0 0 rgba(251,191,36,0.6); } to { box-shadow:0 0 0 10px rgba(251,191,36,0); } }`;
+  document.head.appendChild(s);
+})();
+
+// ── Live ticker ──
+let dc=1445, cc=122;
+setInterval(()=>{
+  if(Math.random()>0.55){dc++;document.getElementById('s-doors').textContent=dc;}
+  if(Math.random()>0.93){cc++;document.getElementById('s-conv').textContent=cc;}
+},3000);
+
+// ═══════════════════════════════════════════════
+// CANVASSES
+// ═══════════════════════════════════════════════
+
+let activeFilter = 'all';
+
+// Map assigned canvassers to each canvass
+const canvassAssignments = {
+  1: [1, 3],      // Summer Push #1 — Marcus, DeShawn
+  2: [2, 4],      // Summer Push #2 — Priya, Sofia
+  3: [1],         // Local Promo — Marcus
+  4: [2, 3, 4, 5],// Spring Awareness — completed
+  5: [],          // New Neighborhoods — draft
+};
+
+// Zone polygons per canvass
+const canvassZones = {
+  1: { coords:[[30.518,-97.700],[30.518,-97.665],[30.504,-97.665],[30.504,-97.700]], color:'#22c55e' },
+  2: { coords:[[30.525,-97.680],[30.525,-97.650],[30.510,-97.650],[30.510,-97.680]], color:'#C07830' },
+  3: { coords:[[30.510,-97.710],[30.510,-97.685],[30.496,-97.685],[30.496,-97.710]], color:'#f59e0b' },
+  4: { coords:[[30.527,-97.655],[30.527,-97.632],[30.512,-97.632],[30.512,-97.655]], color:'#7c3aed' },
+  5: null,
+};
+
+let canvassDetailMap = null;
+
+function renderCanvasses(filter) {
+  const list = document.getElementById('canvasses-list');
+  const items = filter==='all' ? canvassesList : canvassesList.filter(c => c.status===filter);
+  list.innerHTML = items.map(c => `
+    <div class="canvas-card" onclick="openCanvassDetail(${c.id})" style="cursor:pointer;">
+      <div class="canvas-card-top">
+        <div class="canvas-card-title">${c.title}</div>
+        <div class="type-pill">${c.type}</div>
+        <div class="status-badge ${c.status}">${c.status==='active'?'Active':c.status==='awaiting'?'Awaiting Materials':c.status==='draft'?'Draft':'Completed'}</div>
+        <div class="chevron">→</div>
+      </div>
+      <div class="canvas-card-meta">
+        <div class="meta-item">📍 ${c.location}</div>
+        ${c.dateRange!=='Not set'?`<div class="meta-item">📅 ${c.dateRange}</div>`:''}
+        ${(canvassAssignments[c.id]||[]).length>0?`<div class="meta-item">👤 ${(canvassAssignments[c.id]||[]).length} Porch Pro(s)</div>`:''}
+        <div class="meta-item" style="margin-left:auto;color:#C07830;font-weight:600;font-size:12px;">View details →</div>
+      </div>
+    </div>
+  `).join('') || `<div style="padding:40px;text-align:center;color:var(--muted);">No canvasses in this category.</div>`;
+}
+
+function filterCanvasses(filter, el) {
+  document.querySelectorAll('#canvass-tabs .tab-item').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderCanvasses(filter);
+}
+
+function openCanvassDetail(canvassId) {
+  const c = canvassesList.find(x => x.id === canvassId);
+  if (!c) return;
+  document.getElementById('canvass-list-view').style.display = 'none';
+  document.getElementById('canvass-detail-view').style.display = 'flex';
+  document.getElementById('detail-title').textContent = c.title;
+  document.getElementById('detail-sub').textContent = `${c.type} · ${c.location} · ${c.dateRange}`;
+  const assigned = (canvassAssignments[canvassId] || []).map(id => canvassers.find(cv => cv.id === id)).filter(Boolean);
+  document.getElementById('detail-cv-count').textContent = assigned.length + ' Porch Pro(s)';
+  // Render sidebar
+  document.getElementById('detail-cv-list').innerHTML = assigned.length
+    ? assigned.map(cv => {
+        const payout = livePayouts.find(p => p.name === cv.name) || { weeklyDoors:0, tier:'Starter' };
+        const tierMeta = getTierMeta(payout.tier);
+        return `
+        <div class="cv-profile-row" onclick="openProfile(${cv.id})">
+          <div class="cv-photo" style="width:44px;height:44px;font-size:14px;flex-shrink:0;background:${cv.color}20;color:${cv.color}">${cv.initials}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;">${cv.name}</div>
+            <div class="cv-profile-stat">
+              <span>🏠 <strong>${payout.weeklyDoors}</strong> doors</span>
+              <span>${tierMeta.label} ${payout.tier}</span>
+              <span style="color:${cv.accountability>=80?'#15803d':cv.accountability>=60?'#92400e':'#991b1b'}">⚡ ${cv.accountability}%</span>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#C07830;font-weight:600;">View →</div>
+        </div>`;
+      }).join('')
+    : `<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">No canvassers assigned yet.</div>`;
+  // Init/update map
+  setTimeout(() => {
+    if (!canvassDetailMap) {
+      canvassDetailMap = L.map('canvass-detail-map').setView([30.510,-97.675], 13);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri', maxZoom:19 }).addTo(canvassDetailMap);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom:19 }).addTo(canvassDetailMap);
+    } else {
+      canvassDetailMap.eachLayer(l => { if (!(l instanceof L.TileLayer)) canvassDetailMap.removeLayer(l); });
+    }
+    canvassDetailMap.invalidateSize();
+    const zone = canvassZones[canvassId];
+    if (zone) {
+      const poly = L.polygon(zone.coords, { color:zone.color, fillColor:zone.color, fillOpacity:0.25, weight:3 }).addTo(canvassDetailMap);
+      canvassDetailMap.fitBounds(poly.getBounds(), { padding:[40,40] });
+    }
+    // Plot this canvass's doors
+    const assigned = (canvassAssignments[canvassId]||[]).map(id => canvassers.find(cv=>cv.id===id)).filter(Boolean);
+    assigned.forEach(cv => {
+      allDoors.filter(d => d.name===cv.name).forEach((d,idx) => {
+        L.circleMarker([d.lat,d.lng],{radius:5,fillColor:outcomeColors[d.outcome],color:'#fff',fillOpacity:0.9,weight:1.5})
+          .on('click',()=>openPhoto(allDoors.indexOf(d))).addTo(canvassDetailMap);
+      });
+      if (cv.status!=='offline') {
+        const icon = L.divIcon({ className:'', html:`<div style="width:34px;height:34px;border-radius:50%;background:${cv.color};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${cv.initials}</div>`, iconSize:[34,34], iconAnchor:[17,17] });
+        L.marker([cv.lat,cv.lng],{icon}).addTo(canvassDetailMap);
+      }
+    });
+  }, 80);
+}
+
+function closeCanvassDetail() {
+  document.getElementById('canvass-detail-view').style.display = 'none';
+  document.getElementById('canvass-list-view').style.display = 'flex';
+}
+
+// ── CANVASSER PROFILE ──
+let profileMap = null;
+
+function openProfile(cvId) {
+  const cv = canvassers.find(c => c.id === cvId);
+  if (!cv) return;
+  const payout = livePayouts.find(p => p.name === cv.name) || { weeklyDoors:0, daysWorked:0, tier:'Starter', rate:0.10, amount:0 };
+  const tierMeta = getTierMeta(payout.tier);
+  const cvDoors = allDoors.filter(d => d.name === cv.name);
+
+  document.getElementById('profile-modal').style.display = 'flex';
+  // Reset history chart + load fresh data
+  if (profileHistoryChart) { profileHistoryChart.destroy(); profileHistoryChart = null; }
+  profileHistoryData = null;
+  document.getElementById('profile-trend-badge').className = 'trend-badge steady';
+  document.getElementById('profile-trend-badge').textContent = '→ Loading…';
+  loadProfileHistory(cv.id);
+  document.getElementById('profile-avatar').style.background = cv.color + '25';
+  document.getElementById('profile-avatar').style.color = cv.color;
+  document.getElementById('profile-avatar').textContent = cv.initials;
+  document.getElementById('profile-name').textContent = cv.name;
+  document.getElementById('profile-zone').textContent = cv.zone + ' · ' + cv.location;
+  document.getElementById('profile-tier-badge').textContent = tierMeta.label + ' ' + payout.tier;
+  document.getElementById('profile-tier-badge').style.background = tierMeta.bg;
+  document.getElementById('profile-tier-badge').style.color = tierMeta.color;
+  document.getElementById('profile-doors').textContent = w.weeklyDoors.toLocaleString();
+  document.getElementById('profile-conv').textContent = cv.conversions;
+  document.getElementById('profile-acc').textContent = cv.accountability + '%';
+  document.getElementById('profile-acc').style.color = cv.accountability>=80?'#15803d':cv.accountability>=60?'#f59e0b':'#ef4444';
+  document.getElementById('profile-days').textContent = w.daysWorked + ' days';
+  document.getElementById('profile-rate').textContent = '$' + tier.rate.toFixed(2);
+  document.getElementById('profile-earned').textContent = '$' + (w.weeklyDoors * tier.rate).toFixed(2);
+  document.getElementById('profile-photo-count').textContent = cvDoors.length + ' photos';
+
+  // Photo grid
+  document.getElementById('profile-photo-grid').innerHTML = cvDoors.slice(0,30).map((d,i) => {
+    const globalIdx = allDoors.indexOf(d);
+    return `
+    <div class="photo-thumb" onclick="openPhoto(${globalIdx})">
+      <img src="${thumbSrc(d)}" loading="lazy" />
+      <div class="photo-thumb-overlay">
+        <div class="photo-thumb-time">${d.time}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Mini map
+  setTimeout(() => {
+    if (!profileMap) {
+      profileMap = L.map('profile-map',{zoomControl:false,dragging:false,scrollWheelZoom:false}).setView([cv.lat,cv.lng],14);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19}).addTo(profileMap);
+    } else {
+      profileMap.eachLayer(l => { if (!(l instanceof L.TileLayer)) profileMap.removeLayer(l); });
+      profileMap.setView([cv.lat,cv.lng],14);
+    }
+    profileMap.invalidateSize();
+    cvDoors.forEach(d => {
+      L.circleMarker([d.lat,d.lng],{radius:4,fillColor:outcomeColors[d.outcome],color:'#fff',fillOpacity:0.9,weight:1}).addTo(profileMap);
+    });
+    if (cv.status!=='offline') {
+      const icon = L.divIcon({className:'',html:`<div style="width:30px;height:30px;border-radius:50%;background:${cv.color};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;">${cv.initials}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+      L.marker([cv.lat,cv.lng],{icon}).addTo(profileMap);
+    }
+  }, 80);
+}
+
+function closeProfile() {
+  document.getElementById('profile-modal').style.display = 'none';
+  if (profileHistoryChart) { profileHistoryChart.destroy(); profileHistoryChart = null; }
+}
+
+// ── PERFORMANCE HISTORY ───────────────────────────────────────────────────────
+
+let profileHistoryChart = null;
+let profileHistoryData  = null; // raw history array
+let historyMetric = 'doors';
+
+async function loadProfileHistory(cvId) {
+  try {
+    const res = await fetch(`${API}/api/canvassers/${cvId}/history`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    profileHistoryData = data;
+
+    // Trend badge
+    const badge = document.getElementById('profile-trend-badge');
+    const trendMap = { up: ['↑ Improving', 'up'], down: ['↓ Declining', 'down'], steady: ['→ Steady', 'steady'] };
+    const [label, cls] = trendMap[data.trend] || trendMap.steady;
+    badge.textContent = label;
+    badge.className = `trend-badge ${cls}`;
+
+    // Summary
+    document.getElementById('hist-recent-avg').textContent = data.recentAvg + ' doors';
+    document.getElementById('hist-prior-avg').textContent  = data.priorAvg  + ' doors';
+    const best = data.history.reduce((b, r) => r.doors > b ? r.doors : b, 0);
+    document.getElementById('hist-best-day').textContent = best + ' doors';
+
+    renderHistoryChart('doors');
+  } catch(e) { console.warn('History load failed', e); }
+}
+
+function renderHistoryChart(metric) {
+  historyMetric = metric;
+  if (!profileHistoryData) return;
+  const rows = profileHistoryData.history;
+  if (!rows || rows.length === 0) return;
+
+  const labels = rows.map(r => {
+    const d = new Date(r.snap_date + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  });
+
+  const metricMap = {
+    doors: { key:'doors',         label:'Doors / Day',    color:'#C07830' },
+    acc:   { key:'accountability_score', label:'Accountability %', color:'#7c3aed' },
+    dph:   { key:'doors_per_hour', label:'Doors / Hr',    color:'#22c55e' },
+  };
+  const m = metricMap[metric];
+  const values = rows.map(r => Math.round((r[m.key] || 0) * 10) / 10);
+
+  const ctx = document.getElementById('profile-history-chart').getContext('2d');
+  if (profileHistoryChart) profileHistoryChart.destroy();
+
+  profileHistoryChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: m.label,
+        data: values,
+        backgroundColor: m.color + '55',
+        borderColor: m.color,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => `${ctx.parsed.y} ${m.label.toLowerCase()}`
+      }}},
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 } }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function switchHistoryTab(metric, el) {
+  document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderHistoryChart(metric);
+}
+
+// Store trend data per canvasser for list rendering
+const canvasserTrends = {}; // id -> 'up'|'down'|'steady'
+
+async function prefetchAllTrends() {
+  for (const cv of canvassers) {
+    try {
+      const res = await fetch(`${API}/api/canvassers/${cv.id}/history`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        canvasserTrends[cv.id] = data.trend;
+      }
+    } catch {}
+  }
+  renderCanvassersList();
+}
+
+renderCanvasses('all');
+
+// ═══════════════════════════════════════════════
+// MESSAGES
+// ═══════════════════════════════════════════════
+
+let activeThread = null;
+let liveThreads = [];
+
+function msgRelTime(ts) {
+  const diff = Math.floor(Date.now()/1000) - ts;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+function threadColor(name) {
+  const colors = ['#C07830','#7c3aed','#22c55e','#f59e0b','#ef4444','#06b6d4'];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return colors[Math.abs(h) % colors.length];
+}
+
+function threadInitials(name) {
+  return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+function getThreads() {
+  return liveThreads.length ? liveThreads : messages;
+}
+
+function renderThreads() {
+  const threads = getThreads();
+  if (!threads.length) {
+    document.getElementById('msg-thread-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">No conversations yet</div>';
+    return;
+  }
+  document.getElementById('msg-thread-list').innerHTML = threads.map(m => {
+    const id = m.canvasser_id || m.id;
+    const color = m.color || threadColor(m.name);
+    const initials = m.initials || threadInitials(m.name);
+    const online = m.status === 'active' || m.online;
+    const preview = m.last_message || m.preview || '';
+    const time = m.last_sent ? msgRelTime(m.last_sent) : (m.time || '');
+    const unread = (typeof m.unread === 'number' ? m.unread > 0 : m.unread);
+    return `
+      <div class="msg-item ${activeThread==id?'selected':''}" onclick="openThread('${id}')">
+        <div class="msg-avatar-wrap">
+          <div class="msg-avatar" style="background:${color}20;color:${color}">${initials}</div>
+          ${online?'<div class="online-dot"></div>':''}
+        </div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <div class="msg-name">${m.name}</div>
+            <div class="msg-time">${time}</div>
+          </div>
+          <div class="msg-preview ${unread?'unread':''}">${preview}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function openThread(id) {
+  activeThread = id;
+
+  const threads = getThreads();
+  const m = threads.find(x => (x.canvasser_id||x.id) == id);
+  if (!m) return;
+
+  // Mark unread cleared locally
+  if (typeof m.unread === 'number') m.unread = 0;
+  else m.unread = false;
+  renderThreads();
+
+  const color = m.color || threadColor(m.name);
+  const initials = m.initials || threadInitials(m.name);
+  const online = m.status === 'active' || m.online;
+
+  document.getElementById('chat-empty').style.display = 'none';
+  document.getElementById('chat-open').style.display = 'flex';
+  document.getElementById('chat-messages').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Loading…</div>';
+
+  document.getElementById('chat-header').innerHTML = `
+    <div class="msg-avatar" style="background:${color}20;color:${color};width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${initials}</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;">${m.name}</div>
+      <div style="font-size:12px;color:var(--muted);">${online?'🟢 Online':'Offline'}</div>
+    </div>
+  `;
+
+  // Fetch real messages if live
+  if (bizToken && m.canvasser_id) {
+    try {
+      const res = await authFetch(`/api/messages/${m.canvasser_id}`);
+      const msgs = await res.json();
+      renderChatMsgs(msgs.map(msg => ({
+        from: msg.from_type === 'business' ? 'me' : 'them',
+        text: msg.text,
+        time: new Date(msg.sent_at*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+      })));
+      return;
+    } catch {}
+  }
+  // Fallback demo
+  if (m.chat) renderChatMsgs(m.chat);
+}
+
+function renderChatMsgs(msgs) {
+  if (!msgs.length) {
+    document.getElementById('chat-messages').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No messages yet — say hi!</div>';
+    return;
+  }
+  document.getElementById('chat-messages').innerHTML = msgs.map(msg => `
+    <div>
+      <div class="bubble ${msg.from}">${msg.text}</div>
+      <div class="bubble-time ${msg.from}">${msg.time}</div>
+    </div>
+  `).join('');
+  const el = document.getElementById('chat-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendMsg(e) {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !activeThread) return;
+  input.value = '';
+
+  if (bizToken) {
+    try {
+      await fetch(`${API}/api/messages/${activeThread}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:`Bearer ${bizToken}`},
+        body: JSON.stringify({ text })
+      });
+      // Refresh the thread
+      const res = await authFetch(`/api/messages/${activeThread}`);
+      const msgs = await res.json();
+      renderChatMsgs(msgs.map(msg => ({
+        from: msg.from_type === 'business' ? 'me' : 'them',
+        text: msg.text,
+        time: new Date(msg.sent_at*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+      })));
+      // Refresh thread list (updates last_message preview)
+      const tRes = await authFetch('/api/messages');
+      liveThreads = await tRes.json();
+      renderThreads();
+    } catch {}
+  } else {
+    // Demo fallback
+    const m = messages.find(x => x.id == activeThread);
+    if (m) { m.chat.push({from:'me', text, time:'Just now'}); renderChatMsgs(m.chat); }
+  }
+}
+
+renderThreads();
+
+// ═══════════════════════════════════════════════
+// CANVASSERS PAGE
+// ═══════════════════════════════════════════════
+
+const lbData = {
+  week: canvassers.filter(c=>c.doors>0).sort((a,b)=>b.doors-a.doors),
+};
+
+function renderLeaderboard() {
+  const sorted = [...getCanvassers()].filter(c=>c.doors>0).sort((a,b)=>b.doors-a.doors);
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('lb-rows').innerHTML = sorted.map((c,i) => `
+    <div class="lb-row ${i===0?'gold':''}">
+      <div class="lb-rank">${medals[i]||`#${i+1}`}</div>
+      <div class="lb-photo" style="background:${c.color}20;color:${c.color}">${c.initials}</div>
+      <div class="lb-name">${c.name}</div>
+      <div><span class="lb-homes" style="color:${i===0?'#f59e0b':'var(--text)'}">${c.doors}</span><span class="lb-homes-label">HOMES</span></div>
+    </div>
+  `).join('');
+}
+
+function setPeriod(p, el) {
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderLeaderboard();
+}
+
+function renderCanvassersList() {
+  const cvs = getCanvassers();
+  if (!cvs.length) {
+    document.getElementById('canvassers-list').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">No canvassers yet — add one above.</div>';
+    return;
+  }
+  document.getElementById('canvassers-list').innerHTML = cvs.map(c => {
+    const acc = Math.round(c.accountability || 0);
+    const statusDot = c.status === 'active' ? '🟢' : c.status === 'idle' ? '🟡' : '⚫';
+    return `
+    <div class="cv-card">
+      <div class="cv-photo" style="background:${c.color}20;color:${c.color}">${c.initials}</div>
+      <div class="cv-info">
+        <div class="cv-name">${c.name}</div>
+        <div class="cv-meta-top">
+          <span>📍 ${c.location || '—'}</span>
+          <span>📞 ${c.phone || '—'}</span>
+          <span>${statusDot} ${c.status}</span>
+        </div>
+        <div class="cv-stats-row">
+          <span>🏠 <strong>${c.doors}</strong> doors</span>
+          <span>✅ <strong>${c.conversions}</strong> converted</span>
+          <span style="color:var(--muted)">${c.lastActive}</span>
+        </div>
+        <div class="accountability-bar">
+          <div class="acc-label">
+            <span>Accountability score</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-weight:700;color:${acc>=80?'var(--green-text)':acc>=60?'var(--yellow-text)':'var(--red-text)'}">${acc}%</span>
+              ${(()=>{ const t=canvasserTrends[c.apiId||c.id]; if(!t||t==='steady') return ''; const u=t==='up'; return `<span class="trend-badge ${t}" style="font-size:10px;padding:1px 6px;">${u?'↑ Improving':'↓ Declining'}</span>`; })()}
+            </div>
+          </div>
+          <div class="acc-track">
+            <div class="acc-fill" style="width:${acc}%;background:${acc>=80?'#22c55e':acc>=60?'#f59e0b':'#ef4444'}"></div>
+          </div>
+        </div>
+      </div>
+      <div class="cv-actions">
+        <div class="icon-btn" title="Edit" onclick="showEditPorchProModal('${c.apiId||c.id}','${c.name}','${c.phone||''}','${c.location||''}')">✏️</div>
+        <div class="icon-btn" title="Message" onclick="openMsg('${c.apiId||c.id}')">💬</div>
+        <div class="icon-btn danger" title="Remove" onclick="removePorchPro('${c.apiId||c.id}','${c.name}')">🗑</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openMsg(id) {
+  nav('messages', document.querySelector('.nav-item:nth-child(3)'));
+  // id may be a UUID (live) or integer (mock)
+  const cv = getCanvassers().find(c => (c.apiId||c.id) == id) || canvassers.find(c => c.id == id);
+  if (!cv) return;
+  const realId = cv.apiId || id;
+  // Check if a thread exists for this canvasser
+  const thread = getThreads().find(m => (m.canvasser_id||m.id) == realId || m.name.startsWith(cv.name.split(' ')[0]));
+  const threadId = thread ? (thread.canvasser_id || thread.id) : realId;
+  if (threadId) setTimeout(() => openThread(String(threadId)), 100);
+}
+
+renderLeaderboard();
+renderCanvassersList();
+
+
+// ═══════════════════════════════════════════════
+// LIVE API INTEGRATION
+// When server is running, live data replaces mock data
+// ═══════════════════════════════════════════════
+
+const API = 'http://localhost:3000';
+let bizToken = localStorage.getItem('biz_token');
+
+// Login modal
+function showLoginModal() {
+  const modal = document.createElement('div');
+  modal.id = 'login-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:32px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px;">Sign in to FrontPorch</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:24px;">Connect to live data</div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Email</label>
+        <input id="biz-email" type="email" value="christina@heliogrowth.com" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;outline:none;" />
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Password</label>
+        <input id="biz-pass" type="password" value="demo123" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;outline:none;" />
+      </div>
+      <button onclick="doLoginBiz()" style="width:100%;padding:12px;background:#C07830;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Connect Live Data →</button>
+      <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted);">Or <a href="#" onclick="document.getElementById('login-modal').remove()" style="color:#C07830;">continue with demo data</a></div>
+      <div id="biz-error" style="color:#ef4444;font-size:13px;text-align:center;margin-top:10px;display:none;">Invalid email or password.</div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doLoginBiz() {
+  const email = document.getElementById('biz-email').value;
+  const pass = document.getElementById('biz-pass').value;
+  try {
+    const res = await fetch(`${API}/api/auth/business/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email, password: pass })
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    bizToken = data.token;
+    localStorage.setItem('biz_token', bizToken);
+    document.getElementById('login-modal').remove();
+    await loadLiveData();
+  } catch {
+    document.getElementById('biz-error').style.display = 'block';
+  }
+}
+
+async function authFetch(url) {
+  return fetch(API + url, { headers: { Authorization: `Bearer ${bizToken}` } });
+}
+
+async function loadLiveData() {
+  try {
+    // Test connection
+    const test = await authFetch('/api/dashboard');
+    if (!test.ok) { bizToken = null; localStorage.removeItem('biz_token'); return; }
+    const dash = await test.json();
+
+    // Update stat strip
+    document.getElementById('s-doors').textContent = dash.doorsToday;
+    document.getElementById('s-conv').textContent = dash.conversionsToday;
+
+    // Load canvassers
+    const cvsRes = await authFetch('/api/canvassers');
+    const liveCvs = await cvsRes.json();
+
+    // Load door knocks
+    const doorsRes = await authFetch('/api/doors');
+    const liveDoors = await doorsRes.json();
+    window._liveDoors = liveDoors; // make available to building renderer
+
+    // Update map if initialized
+    if (mapInitialized && window._map) {
+      // Clear existing door markers and re-add from live data
+      liveDoors.forEach(d => {
+        const hasPhoto = !!d.photo_url;
+        const marker = L.circleMarker([d.lat, d.lng], {
+          radius: hasPhoto ? 8 : 5,
+          fillColor: outcomeColors[d.outcome],
+          color: hasPhoto ? '#fff' : '#fff',
+          fillOpacity: 0.92,
+          weight: hasPhoto ? 2.5 : 1.5
+        });
+        if (hasPhoto) {
+          marker.on('click', (e) => {
+            e.originalEvent._markerClick = true;
+            openLiveDoorPhoto(d);
+          });
+        } else {
+          marker.bindPopup(`<strong>${outcomeLabels[d.outcome]}</strong><br/>${d.canvasser_name}<br/><span style="color:#6b7280">${new Date(d.knocked_at*1000).toLocaleTimeString()}</span>`);
+        }
+        marker.addTo(window._map);
+      });
+      // Refresh buildings so knocked ones show green
+      if (window._map.getZoom() >= 16) fetchBuildings();
+    }
+
+    // Update sidebar + canvassers list with live data
+    updateSidebarLive(liveCvs);
+
+    // Load messages
+    const msgsRes = await authFetch('/api/messages');
+    const fetchedThreads = await msgsRes.json();
+    updateMessagesLive(fetchedThreads);
+
+    // Load payouts
+    await refreshPayouts();
+
+    // Load schedule
+    await loadSchedule();
+
+    // Connect WebSocket for real-time updates
+    connectWS();
+
+    console.log('✅ Connected to live data');
+  } catch(e) {
+    console.log('Server not running — using demo data');
+  }
+}
+
+let liveCanvassers = [];
+
+function updateSidebarLive(liveCvs) {
+  liveCanvassers = liveCvs;
+  liveCvs.forEach(lc => {
+    const local = canvassers.find(c => c.name === lc.name);
+    if (local) {
+      local.doors = lc.doorsToday;
+      local.conversions = lc.conversions;
+      local.dph = lc.dph;
+      local.status = lc.status;
+      local.lat = lc.lat || local.lat;
+      local.lng = lc.lng || local.lng;
+      local.accountability = lc.accountability_score;
+      local.apiId = lc.id;
+    }
+  });
+  renderMapSidebar();
+}
+
+function getCanvassers() {
+  if (liveCanvassers.length) {
+    // Normalize live canvassers to match shape expected by render functions
+    return liveCanvassers.map(lc => ({
+      id: lc.id,
+      apiId: lc.id,
+      name: lc.name,
+      initials: lc.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+      color: canvassers.find(c=>c.name===lc.name)?.color || threadColor(lc.name),
+      zone: lc.location || '—',
+      location: lc.location || '—',
+      phone: lc.phone || '—',
+      doors: lc.doorsToday || 0,
+      conversions: lc.conversions || 0,
+      dph: lc.dph || 0,
+      status: lc.status,
+      accountability: lc.accountability_score || 0,
+      lastActive: lc.status === 'active' ? 'Active now' : lc.status === 'idle' ? 'Idle' : 'Offline',
+    }));
+  }
+  return canvassers;
+}
+
+function updateMessagesLive(threads) {
+  liveThreads = threads;
+  renderThreads();
+}
+
+function connectWS() {
+  try {
+    const ws = new WebSocket(`ws://localhost:3000`);
+    ws.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'location_update' || msg.type === 'canvasser_update') {
+        setTimeout(() => authFetch('/api/canvassers').then(r=>r.json()).then(updateSidebarLive), 500);
+      }
+
+      if (msg.type === 'door_knock' && window._map) {
+        const hasPhoto = !!msg.photo_url;
+        // Add to live doors array for building detection
+        if (!window._liveDoors) window._liveDoors = [];
+        window._liveDoors.push({ lat: msg.lat, lng: msg.lng, outcome: msg.outcome, photo_url: msg.photo_url || null, canvasser_name: '', knocked_at: Math.floor(Date.now()/1000) });
+
+        const marker = L.circleMarker([msg.lat, msg.lng], {
+          radius: hasPhoto ? 8 : 6,
+          fillColor: outcomeColors[msg.outcome],
+          color:'#fff', fillOpacity:0.95,
+          weight: hasPhoto ? 2.5 : 2
+        });
+        if (hasPhoto) {
+          marker.on('click', (e) => { e.originalEvent._markerClick = true; openLiveDoorPhoto({ ...msg, knocked_at: Math.floor(Date.now()/1000) }); });
+        }
+        marker.addTo(window._map);
+        // Refresh buildings to turn the knocked home green
+        if (window._map.getZoom() >= 16) fetchBuildings();
+        document.getElementById('s-doors').textContent = parseInt(document.getElementById('s-doors').textContent) + 1;
+        if (msg.outcome === 'converted') document.getElementById('s-conv').textContent = parseInt(document.getElementById('s-conv').textContent) + 1;
+      }
+
+      if (msg.type === 'new_message') {
+        // Refresh thread list
+        try {
+          const tRes = await authFetch('/api/messages');
+          liveThreads = await tRes.json();
+          renderThreads();
+          // If the sender's thread is open, refresh it too
+          if (activeThread === msg.canvasserId) {
+            const mRes = await authFetch(`/api/messages/${msg.canvasserId}`);
+            const msgs = await mRes.json();
+            renderChatMsgs(msgs.map(m => ({
+              from: m.from_type === 'business' ? 'me' : 'them',
+              text: m.text,
+              time: new Date(m.sent_at*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+            })));
+          }
+        } catch {}
+      }
+    };
+    ws.onerror = () => {};
+    ws.onclose = () => { setTimeout(connectWS, 5000); }; // auto-reconnect
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════
+// PAYOUTS
+// ═══════════════════════════════════════════════
+
+// Tier definitions — 100 doors/hr, 4-5 hr days = 400-500 doors
+const CASHOUT_THRESHOLD = 500; // minimum doors for mid-week cashout request
+
+const TIERS = [
+  { name:'Starter', minDays:0, minDoors:0,    rate:0.10, color:'#8B5520', bg:'#FDF0DC', label:'🟢' },
+  { name:'Pro',     minDays:3, minDoors:1000, rate:0.18, color:'#854d0e', bg:'#fefce8', label:'🥈' },
+  { name:'Elite',   minDays:4, minDoors:1500, rate:0.25, color:'#15803d', bg:'#f0fdf4', label:'🏆' },
+];
+
+// Weekly doors + days per canvasser (resets every Monday)
+// ── PAYOUTS (live) ─────────────────────────────────────────────────────────────
+
+let livePayouts = []; // populated from API
+
+function getTierMeta(tierName) {
+  const map = {
+    Starter: { color:'#8B5520', bg:'#FDF0DC', label:'🟢' },
+    Pro:     { color:'#854d0e', bg:'#fefce8', label:'🥈' },
+    Elite:   { color:'#15803d', bg:'#f0fdf4', label:'🏆' },
+  };
+  return map[tierName] || map.Starter;
+}
+
+function getTierProgressFromData(p) {
+  const NEXT = { Starter:{ name:'Pro', minDoors:1000, minDays:3 }, Pro:{ name:'Elite', minDoors:1500, minDays:4 } };
+  const next = NEXT[p.tier];
+  if (!next) return { pct:100, next:null };
+  const doorPct = Math.min(Math.round((p.weeklyDoors / next.minDoors)*100), 100);
+  const dayPct  = Math.min(Math.round((p.daysWorked  / next.minDays) *100), 100);
+  return {
+    pct: Math.min(doorPct, dayPct),
+    next,
+    doorsNeeded: Math.max(0, next.minDoors - p.weeklyDoors),
+    daysNeeded:  Math.max(0, next.minDays  - p.daysWorked),
+  };
+}
+
+function calcPaySummary() {
+  const data = livePayouts.length ? livePayouts : [];
+  const owed = data.filter(p => !p.paid).reduce((s,p) => s + p.amount, 0);
+  const paid = data.filter(p =>  p.paid).reduce((s,p) => s + p.amount, 0);
+  const top  = [...data].sort((a,b) => b.amount - a.amount)[0];
+  document.getElementById('pay-owed').textContent = '$' + owed.toFixed(2);
+  document.getElementById('pay-paid').textContent = '$' + paid.toFixed(2);
+  document.getElementById('pay-top').textContent  = top ? top.name.split(' ')[0] + ' — $' + top.amount.toFixed(2) : '—';
+}
+
+async function approvePay(canvasserId) {
+  if (bizToken) {
+    try {
+      await fetch(`${API}/api/payouts/${canvasserId}/approve`, {
+        method:'POST', headers:{ Authorization:`Bearer ${bizToken}` }
+      });
+      await refreshPayouts();
+      return;
+    } catch {}
+  }
+  // Demo fallback
+  const p = livePayouts.find(x => x.canvasser_id === canvasserId);
+  if (p) { p.paid = true; renderPayouts(); calcPaySummary(); }
+}
+
+async function approveAll() {
+  if (bizToken) {
+    try {
+      await fetch(`${API}/api/payouts/approve-all`, {
+        method:'POST', headers:{ Authorization:`Bearer ${bizToken}` }
+      });
+      await refreshPayouts();
+      return;
+    } catch {}
+  }
+  livePayouts.forEach(p => p.paid = true);
+  renderPayouts(); calcPaySummary();
+}
+
+async function refreshPayouts() {
+  if (!bizToken) return;
+  try {
+    const res = await authFetch('/api/payouts');
+    const data = await res.json();
+    livePayouts = data.canvassers || [];
+    renderPayouts();
+    calcPaySummary();
+  } catch {}
+}
+
+function renderPayouts() {
+  const data = livePayouts;
+  if (!data.length) {
+    document.getElementById('payout-rows').innerHTML =
+      '<div style="padding:28px;text-align:center;color:var(--muted);font-size:14px;">No door knocks logged this week yet.</div>';
+    calcPaySummary();
+    return;
+  }
+
+  document.getElementById('payout-rows').innerHTML = data.map(p => {
+    const meta = getTierMeta(p.tier);
+    const { pct, next, doorsNeeded, daysNeeded } = getTierProgressFromData(p);
+    const cashoutPct = Math.min(Math.round((p.weeklyDoors / CASHOUT_THRESHOLD)*100), 100);
+    const color = threadColor(p.name);
+    const initials = threadInitials(p.name);
+
+    const tierProgress = next
+      ? `<div style="font-size:10px;color:var(--muted);margin-bottom:2px;">${doorsNeeded} more doors${daysNeeded>0?' + '+daysNeeded+' more day(s)':''} → ${next.name}</div>
+         <div style="height:3px;background:#e5e7eb;border-radius:2px;"><div style="width:${pct}%;height:100%;background:${meta.color};border-radius:2px;"></div></div>`
+      : `<div style="font-size:10px;color:#15803d;">🏆 Max tier reached</div>`;
+
+    const cashoutBar = !p.canCashOut
+      ? `<div style="margin-top:5px;">
+           <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">${p.weeklyDoors}/${CASHOUT_THRESHOLD} doors to unlock cashout</div>
+           <div style="height:3px;background:#e5e7eb;border-radius:2px;"><div style="width:${cashoutPct}%;height:100%;background:#C07830;border-radius:2px;"></div></div>
+         </div>`
+      : `<div style="font-size:10px;color:#15803d;margin-top:4px;">✅ Cashout unlocked (${p.weeklyDoors} doors)</div>`;
+
+    const paidAt = p.paid_at ? new Date(p.paid_at*1000).toLocaleDateString([],{month:'short',day:'numeric'}) : '';
+    const actionBtn = p.paid
+      ? `<span class="pay-btn paid-label">✓ Paid${paidAt?' '+paidAt:''}</span>`
+      : p.canCashOut
+        ? `<button class="pay-btn approve" onclick="approvePay('${p.canvasser_id}')">Approve & Pay</button>`
+        : `<button class="pay-btn" style="background:#f3f4f6;color:#6b7280;cursor:not-allowed;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;border:none;" title="Under ${CASHOUT_THRESHOLD} door threshold">🔒 Under threshold</button>`;
+
+    return `
+    <div class="payout-row" style="grid-template-columns:2.5fr 1fr 1fr 1fr 1fr 160px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div class="cv-photo" style="width:34px;height:34px;font-size:12px;flex-shrink:0;background:${color}20;color:${color}">${initials}</div>
+        <div style="min-width:0;flex:1;">
+          <div style="font-weight:700;font-size:14px;">${p.name}</div>
+          ${tierProgress}
+          ${cashoutBar}
+        </div>
+      </div>
+      <div style="font-size:13px;">${p.weeklyDoors}<div style="font-size:10px;color:var(--muted);">${p.daysWorked} day${p.daysWorked!==1?'s':''}</div></div>
+      <div><span style="background:${meta.bg};color:${meta.color};padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;">${meta.label} ${p.tier}</span></div>
+      <div style="font-weight:600;font-size:13px;">$${p.rate.toFixed(2)}</div>
+      <div style="font-weight:800;font-size:15px;">$${p.amount.toFixed(2)}</div>
+      <div class="payout-actions">${actionBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+renderPayouts();
+calcPaySummary();
+
+// ═══════════════════════════════════════════════
+// SCHEDULE
+// ═══════════════════════════════════════════════
+
+let schedWeekOffset = 0;
+const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const shiftLabels = { morning:'Morning (8am–12pm)', afternoon:'Afternoon (12pm–5pm)', full:'Full Day (8am–8pm)' };
+const shiftShort  = { morning:'Morning', afternoon:'Afternoon', full:'Full Day' };
+
+// liveShiftsMap: { canvasserId: { 'YYYY-MM-DD': { id, shift_type } } }
+let liveShiftsMap = {};
+
+function getSchedWeekStart(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function getSchedDates(offset) {
+  const start = getSchedWeekStart(offset);
+  return Array.from({length:7}, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  });
+}
+
+function getWeekLabel() {
+  const start = getSchedWeekStart(schedWeekOffset);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  return `Week of ${monthNames[start.getMonth()]} ${start.getDate()} – ${monthNames[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+}
+
+function dateDisplayShort(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return dayNames[d.getDay()] + ' ' + monthNames[d.getMonth()] + ' ' + d.getDate();
+}
+
+async function loadSchedule() {
+  const dates = getSchedDates(schedWeekOffset);
+  const weekStart = dates[0];
+  if (!bizToken) { renderSchedule(); return; }
+  try {
+    const res = await authFetch(`/api/schedule?week_start=${weekStart}`);
+    const shifts = await res.json();
+    liveShiftsMap = {};
+    shifts.forEach(s => {
+      if (!liveShiftsMap[s.canvasser_id]) liveShiftsMap[s.canvasser_id] = {};
+      liveShiftsMap[s.canvasser_id][s.shift_date] = { id: s.id, shift_type: s.shift_type };
+    });
+  } catch {}
+  renderSchedule();
+}
+
+function renderSchedule() {
+  const dates = getSchedDates(schedWeekOffset);
+  document.querySelector('#page-schedule .topbar-sub').textContent = getWeekLabel();
+  const today = new Date().toISOString().slice(0, 10);
+  const cvs = getCanvassers();
+
+  const grid = document.getElementById('schedule-grid');
+  let html = `<div class="sched-head" style="background:var(--white);border-right:1px solid var(--border);">Canvasser</div>`;
+  dates.forEach(date => {
+    const isToday = date === today;
+    html += `<div class="sched-head" style="${isToday?'background:#FDF0DC;color:#8B5520;':''}">${dateDisplayShort(date)}${isToday?' 📅':''}</div>`;
+  });
+
+  cvs.forEach(c => {
+    const id = c.apiId || c.id;
+    const color = c.color || threadColor(c.name);
+    const initials = c.initials || threadInitials(c.name);
+    html += `<div class="sched-label"><div class="m-avatar" style="background:${color}20;color:${color};width:28px;height:28px;font-size:10px;">${initials}</div>${c.name.split(' ')[0]}</div>`;
+    dates.forEach(date => {
+      const entry = liveShiftsMap[id]?.[date];
+      const isPast = date < today;
+      html += `<div class="sched-cell${isPast?' style=opacity:0.5':''}" onclick="toggleSchedShift('${id}','${date}')">`;
+      if (entry) {
+        html += `<div class="sched-shift ${entry.shift_type}" style="position:relative;">
+          ${shiftShort[entry.shift_type]}
+          <span onclick="event.stopPropagation();deleteSchedShift('${entry.id}','${id}','${date}')" style="position:absolute;top:1px;right:3px;font-size:10px;opacity:0.6;cursor:pointer;">✕</span>
+        </div>`;
+      } else if (!isPast) {
+        html += `<button class="sched-add">+ Add</button>`;
+      }
+      html += `</div>`;
+    });
+  });
+
+  grid.innerHTML = html;
+}
+
+async function toggleSchedShift(cvId, date) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (date < today) return; // can't edit past
+  const entry = liveShiftsMap[cvId]?.[date];
+  const cycle = { morning:'afternoon', afternoon:'full', full:null };
+  const nextType = entry ? cycle[entry.shift_type] : 'morning';
+
+  if (!nextType) {
+    // Remove
+    if (entry) await deleteSchedShift(entry.id, cvId, date);
+    return;
+  }
+
+  if (bizToken) {
+    try {
+      const res = await fetch(`${API}/api/schedule`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:`Bearer ${bizToken}`},
+        body: JSON.stringify({ canvasser_id: cvId, shift_date: date, shift_type: nextType })
+      });
+      const saved = await res.json();
+      if (!liveShiftsMap[cvId]) liveShiftsMap[cvId] = {};
+      liveShiftsMap[cvId][date] = { id: saved.id, shift_type: saved.shift_type };
+    } catch {}
+  } else {
+    if (!liveShiftsMap[cvId]) liveShiftsMap[cvId] = {};
+    liveShiftsMap[cvId][date] = { id: Date.now().toString(), shift_type: nextType };
+  }
+  renderSchedule();
+}
+
+async function deleteSchedShift(shiftId, cvId, date) {
+  if (bizToken) {
+    try {
+      await fetch(`${API}/api/schedule/${shiftId}`, {
+        method:'DELETE', headers:{ Authorization:`Bearer ${bizToken}` }
+      });
+    } catch {}
+  }
+  if (liveShiftsMap[cvId]) delete liveShiftsMap[cvId][date];
+  renderSchedule();
+}
+
+async function shiftWeek(dir) {
+  schedWeekOffset += dir;
+  await loadSchedule();
+}
+
+function showShiftModal() {
+  const cvs = getCanvassers();
+  const cvOptions = cvs.map(c => `<option value="${c.apiId||c.id}">${c.name}</option>`).join('');
+  const dates = getSchedDates(schedWeekOffset);
+  const dayOptions = dates.map(d => `<option value="${d}">${dateDisplayShort(d)}</option>`).join('');
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box">
+        <div class="modal-title">Add Shift</div>
+        <div class="modal-sub">Assign a canvasser to a shift</div>
+        <div class="modal-field"><label class="modal-label">Canvasser</label><select class="modal-input" id="m-cv">${cvOptions}</select></div>
+        <div class="modal-field"><label class="modal-label">Day</label><select class="modal-input" id="m-day">${dayOptions}</select></div>
+        <div class="modal-field"><label class="modal-label">Shift</label>
+          <select class="modal-input" id="m-shift">
+            <option value="morning">Morning (8am–12pm)</option>
+            <option value="afternoon">Afternoon (12pm–5pm)</option>
+            <option value="full">Full Day (8am–8pm)</option>
+          </select>
+        </div>
+        <div id="shift-modal-err" style="color:var(--red);font-size:13px;display:none;margin-bottom:8px;"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveShiftModal()">Save Shift</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveShiftModal() {
+  const cvId = document.getElementById('m-cv').value;
+  const date = document.getElementById('m-day').value;
+  const shiftType = document.getElementById('m-shift').value;
+  if (bizToken) {
+    try {
+      const res = await fetch(`${API}/api/schedule`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:`Bearer ${bizToken}`},
+        body: JSON.stringify({ canvasser_id: cvId, shift_date: date, shift_type: shiftType })
+      });
+      const saved = await res.json();
+      if (!liveShiftsMap[cvId]) liveShiftsMap[cvId] = {};
+      liveShiftsMap[cvId][date] = { id: saved.id, shift_type: saved.shift_type };
+      closeModal();
+      renderSchedule();
+    } catch {
+      document.getElementById('shift-modal-err').textContent = 'Failed to save — is the server running?';
+      document.getElementById('shift-modal-err').style.display = 'block';
+    }
+  } else {
+    if (!liveShiftsMap[cvId]) liveShiftsMap[cvId] = {};
+    liveShiftsMap[cvId][date] = { id: Date.now().toString(), shift_type: shiftType };
+    closeModal(); renderSchedule();
+  }
+}
+
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+
+renderSchedule();
+
+// ═══════════════════════════════════════════════
+// CREATE CANVASS MODAL
+// ═══════════════════════════════════════════════
+
+document.querySelector('.btn-primary[onclick]') && void 0; // handled inline
+
+function showCreateCanvassModal() {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box" style="max-width:520px;">
+        <div class="modal-title">Create Canvass</div>
+        <div class="modal-sub">Set up a new canvassing campaign for a customer</div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:10px;">Campaign Details</div>
+        <div class="modal-field"><label class="modal-label">Campaign Name</label><input class="modal-input" placeholder="e.g. Oak Creek Summer Push" id="cc-name"/></div>
+        <div class="modal-field"><label class="modal-label">Location</label><input class="modal-input" placeholder="e.g. Williamson County, TX" id="cc-loc"/></div>
+        <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="modal-label">Start Date</label><input class="modal-input" type="date" id="cc-start"/></div>
+          <div><label class="modal-label">End Date</label><input class="modal-input" type="date" id="cc-end"/></div>
+        </div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin:16px 0 10px;">Customer (gets portal access + milestone emails)</div>
+        <div class="modal-field"><label class="modal-label">Customer Name</label><input class="modal-input" placeholder="e.g. Oak Creek HOA" id="cc-cust-name"/></div>
+        <div class="modal-field"><label class="modal-label">Customer Email</label><input class="modal-input" type="email" placeholder="customer@example.com" id="cc-cust-email"/></div>
+        <div id="cc-error" style="color:var(--red);font-size:13px;display:none;margin-bottom:8px;"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" id="cc-btn" onclick="saveCanvass()">Create Canvass</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('cc-name')?.focus(), 50);
+}
+
+async function saveCanvass() {
+  const name = document.getElementById('cc-name').value.trim();
+  const loc  = document.getElementById('cc-loc').value.trim();
+  const start = document.getElementById('cc-start').value;
+  const end   = document.getElementById('cc-end').value;
+  const custName  = document.getElementById('cc-cust-name').value.trim();
+  const custEmail = document.getElementById('cc-cust-email').value.trim();
+  if (!name) { document.getElementById('cc-error').textContent='Campaign name required.'; document.getElementById('cc-error').style.display='block'; return; }
+
+  if (bizToken) {
+    const btn = document.getElementById('cc-btn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await fetch(`${API}/api/canvasses`, {
+        method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${bizToken}`},
+        body: JSON.stringify({ title:name, location:loc||'TBD', date_start:start||null, date_end:end||null, customer_name:custName||null, customer_email:custEmail||null })
+      });
+      const data = await res.json();
+      closeModal();
+      // Show portal link if customer email provided
+      if (custEmail && data.customer_token) {
+        const portalUrl = `${window.location.origin}/customer-portal.html?token=${data.customer_token}`;
+        setTimeout(() => {
+          document.getElementById('modal-root').innerHTML = `
+            <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+              <div class="modal-box" style="text-align:center;">
+                <div style="font-size:36px;margin-bottom:12px;">🎉</div>
+                <div class="modal-title">Canvass Created!</div>
+                <div class="modal-sub" style="margin-bottom:20px;">A welcome email was sent to ${custEmail}. You can also share their portal link directly:</div>
+                <div style="background:var(--gray-bg);border-radius:10px;padding:12px 14px;font-size:12px;font-family:monospace;word-break:break-all;margin-bottom:20px;text-align:left;">${portalUrl}</div>
+                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${portalUrl}');this.textContent='✓ Copied!'">Copy Link</button>
+                <button class="btn btn-ghost" onclick="closeModal()" style="margin-left:8px;">Done</button>
+              </div>
+            </div>`;
+        }, 100);
+      }
+    } catch {
+      document.getElementById('cc-error').textContent = 'Failed to create — is the server running?';
+      document.getElementById('cc-error').style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Create Canvass';
+    }
+  } else {
+    // Demo fallback
+    canvassesList.unshift({ id:canvassesList.length+1, title:name, type:'Flyers', status:'active', location:loc||'TBD', dateRange:start?`${start} – ${end||'ongoing'}`:'Not set', zones:0, cvs:0 });
+    renderCanvasses(activeFilter || 'all');
+    closeModal();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// INVITE CANVASSER MODAL
+// ═══════════════════════════════════════════════
+
+function showInvitePorchProModal() {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box" id="add-cv-modal">
+        <div class="modal-title">Add Canvasser</div>
+        <div class="modal-sub">They'll use their name + the generated PIN to log in.</div>
+        <div id="add-cv-form">
+          <div class="modal-field"><label class="modal-label">Full Name *</label><input class="modal-input" placeholder="First Last" id="inv-name" /></div>
+          <div class="modal-field"><label class="modal-label">Phone (optional)</label><input class="modal-input" placeholder="512-555-0100" id="inv-phone" /></div>
+          <div class="modal-field"><label class="modal-label">Location (optional)</label><input class="modal-input" placeholder="Pflugerville, TX" id="inv-location" /></div>
+          <div id="add-cv-error" style="color:var(--red);font-size:13px;display:none;margin-bottom:8px;"></div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" id="add-cv-btn" onclick="createCanvasser()">Add Canvasser</button>
+          </div>
+        </div>
+        <div id="add-cv-success" style="display:none;text-align:center;padding:8px 0;">
+          <div style="font-size:40px;margin-bottom:12px;">✅</div>
+          <div style="font-size:17px;font-weight:800;margin-bottom:6px;" id="add-cv-name-result"></div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Canvasser added successfully. Share their login info:</div>
+          <div style="background:var(--gray-bg);border-radius:12px;padding:18px;margin-bottom:20px;">
+            <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Login Name</div>
+            <div style="font-size:18px;font-weight:700;" id="add-cv-login-name"></div>
+            <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">PIN</div>
+            <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:var(--accent);" id="add-cv-pin"></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">App URL: <strong>http://localhost:3000/canvasser-app.html</strong></div>
+          <button class="btn btn-primary" style="width:100%;" onclick="closeModal()">Done</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('inv-name')?.focus(), 50);
+}
+
+async function createCanvasser() {
+  const name = document.getElementById('inv-name').value.trim();
+  const phone = document.getElementById('inv-phone').value.trim();
+  const location = document.getElementById('inv-location').value.trim();
+  const errEl = document.getElementById('add-cv-error');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
+  if (!bizToken) { errEl.textContent = 'Not connected to server. Start the server first.'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('add-cv-btn');
+  btn.disabled = true; btn.textContent = 'Adding…';
+
+  try {
+    const res = await fetch(`${API}/api/canvassers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bizToken}` },
+      body: JSON.stringify({ name, phone, location })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    // Show success state with PIN
+    document.getElementById('add-cv-form').style.display = 'none';
+    document.getElementById('add-cv-success').style.display = 'block';
+    document.getElementById('add-cv-name-result').textContent = data.name;
+    document.getElementById('add-cv-login-name').textContent = data.name.split(' ')[0]; // first name
+    document.getElementById('add-cv-pin').textContent = data.pin;
+
+    // Refresh canvassers list
+    const cvsRes = await authFetch('/api/canvassers');
+    const updated = await cvsRes.json();
+    updateSidebarLive(updated);
+    renderCanvassersList();
+    renderLeaderboard();
+  } catch(e) {
+    errEl.textContent = 'Failed to add canvasser. Is the server running?';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Add Canvasser';
+  }
+}
+
+function showEditCanvasserModal(id, name, phone, location) {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box">
+        <div class="modal-title">Edit Canvasser</div>
+        <div class="modal-sub">Update ${name}'s details</div>
+        <div class="modal-field"><label class="modal-label">Full Name</label><input class="modal-input" id="edit-name" value="${name}" /></div>
+        <div class="modal-field"><label class="modal-label">Phone</label><input class="modal-input" id="edit-phone" value="${phone}" /></div>
+        <div class="modal-field"><label class="modal-label">Location</label><input class="modal-input" id="edit-location" value="${location}" /></div>
+        <div id="edit-cv-error" style="color:var(--red);font-size:13px;display:none;margin-bottom:8px;"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveEditCanvasser('${id}')">Save Changes</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveEditCanvasser(id) {
+  const name = document.getElementById('edit-name').value.trim();
+  const phone = document.getElementById('edit-phone').value.trim();
+  const location = document.getElementById('edit-location').value.trim();
+  if (!name) { document.getElementById('edit-cv-error').textContent = 'Name required.'; document.getElementById('edit-cv-error').style.display = 'block'; return; }
+  try {
+    const res = await fetch(`${API}/api/canvassers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bizToken}` },
+      body: JSON.stringify({ name, phone, location })
+    });
+    if (!res.ok) throw new Error();
+    closeModal();
+    const cvsRes = await authFetch('/api/canvassers');
+    const updated = await cvsRes.json();
+    updateSidebarLive(updated);
+    renderCanvassersList();
+    renderLeaderboard();
+  } catch {
+    document.getElementById('edit-cv-error').textContent = 'Failed to save.';
+    document.getElementById('edit-cv-error').style.display = 'block';
+  }
+}
+
+async function removeCanvasser(id, name) {
+  if (!confirm(`Remove ${name}? This will delete their door history and messages.`)) return;
+  try {
+    await fetch(`${API}/api/canvassers/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${bizToken}` }
+    });
+    const cvsRes = await authFetch('/api/canvassers');
+    const updated = await cvsRes.json();
+    updateSidebarLive(updated);
+    renderCanvassersList();
+    renderLeaderboard();
+  } catch {
+    alert('Failed to remove canvasser.');
+  }
+}
+
+// Keyboard nav for photo lightbox
+document.addEventListener('keydown', e => {
+  if (document.getElementById('photo-lightbox').style.display === 'none') return;
+  if (e.key === 'ArrowLeft')  prevPhoto();
+  if (e.key === 'ArrowRight') nextPhoto();
+  if (e.key === 'Escape')     closePhoto();
+});
+
+// Try to connect on load
+setTimeout(async () => {
+  initMap(); mapInitialized = true;
+  if (bizToken) {
+    await loadLiveData();
+  } else {
+    // Show login after 1 second if server might be running
+    setTimeout(() => {
+      try {
+        fetch(`${API}/api/dashboard`).then(r => {
+          if (r.status === 401) showLoginModal();
+        }).catch(()=>{});
+      } catch {}
+    }, 1000);
+  }
+}, 100);
+
+// ═══════════════════════════════════════════════
+// TERRITORY DRAWING
+// ═══════════════════════════════════════════════
+let drawMode = false;
+let drawPoints = [];       // latlng points being drawn
+let drawPolyline = null;   // preview line
+let drawDots = [];         // vertex markers
+let drawPreviewPoly = null;
+const ZONE_COLORS = ['#22c55e','#C07830','#f59e0b','#7c3aed','#ef4444','#ec4899','#14b8a6','#f97316'];
+const customZones = [];    // user-created zones (separate from ZONES)
+const customZoneLayers = [];
+
+function toggleDrawMode() {
+  drawMode = !drawMode;
+  const btn = document.getElementById('draw-territory-btn');
+  const map = window._map;
+  if (!map) return;
+  if (drawMode) {
+    btn.style.background = '#dc2626';
+    btn.textContent = '✕ Cancel Drawing';
+    map.getContainer().style.cursor = 'crosshair';
+    showToast('Click to place vertices · Double-click to finish');
+    map.on('click', onDrawClick);
+    map.on('dblclick', onDrawFinish);
+  } else {
+    cancelDraw();
+  }
+}
+
+function onDrawClick(e) {
+  if (!drawMode) return;
+  const latlng = [e.latlng.lat, e.latlng.lng];
+  drawPoints.push(latlng);
+
+  // Vertex dot
+  const dot = L.circleMarker(latlng, { radius:5, color:'#7c3aed', fillColor:'#fff', fillOpacity:1, weight:2 }).addTo(window._map);
+  drawDots.push(dot);
+
+  // Preview polyline
+  if (drawPolyline) window._map.removeLayer(drawPolyline);
+  if (drawPoints.length > 1) {
+    drawPolyline = L.polyline(drawPoints, { color:'#7c3aed', weight:2, dashArray:'6,4' }).addTo(window._map);
+  }
+  // Preview fill polygon
+  if (drawPreviewPoly) window._map.removeLayer(drawPreviewPoly);
+  if (drawPoints.length > 2) {
+    drawPreviewPoly = L.polygon(drawPoints, { color:'#7c3aed', fillColor:'#7c3aed', fillOpacity:0.15, weight:2, dashArray:'6,4' }).addTo(window._map);
+  }
+}
+
+function onDrawFinish(e) {
+  if (!drawMode || drawPoints.length < 3) {
+    showToast('Need at least 3 points to create a territory.');
+    return;
+  }
+  L.DomEvent.stopPropagation(e);
+  cancelDraw(true); // clean up drawing state but keep coords
+  showTerritoryModal(drawPoints.slice());
+  drawPoints = [];
+}
+
+function cancelDraw(keepCoords) {
+  drawMode = false;
+  const btn = document.getElementById('draw-territory-btn');
+  if (btn) { btn.style.background = '#7c3aed'; btn.textContent = '✏️ Draw Territory'; }
+  const map = window._map;
+  if (map) {
+    map.getContainer().style.cursor = '';
+    map.off('click', onDrawClick);
+    map.off('dblclick', onDrawFinish);
+  }
+  if (!keepCoords) drawPoints = [];
+  drawDots.forEach(d => { if (window._map) window._map.removeLayer(d); });
+  drawDots = [];
+  if (drawPolyline) { if (window._map) window._map.removeLayer(drawPolyline); drawPolyline = null; }
+  if (drawPreviewPoly) { if (window._map) window._map.removeLayer(drawPreviewPoly); drawPreviewPoly = null; }
+}
+
+function showTerritoryModal(coords) {
+  const canvasserOptions = canvassers.map(c =>
+    `<option value="${c.id}">${c.name} (${c.zone})</option>`
+  ).join('');
+  const colorOptions = ZONE_COLORS.map(col =>
+    `<label style="cursor:pointer;"><input type="radio" name="tz-color" value="${col}" style="display:none;" onchange="document.getElementById('tz-preview-swatch').style.background=this.value"/><div style="width:22px;height:22px;border-radius:50%;background:${col};border:3px solid transparent;" onmouseover="this.style.border='3px solid #fff'" onmouseout="this.style.border='3px solid transparent'"></div></label>`
+  ).join('');
+
+  let modal = document.getElementById('territory-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'territory-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3500;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:28px;width:380px;max-width:94vw;box-shadow:0 8px 40px rgba(0,0,0,0.25);">
+      <div style="font-size:17px;font-weight:800;margin-bottom:18px;">📍 Name This Territory</div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Territory Name</label>
+        <input id="tz-name" placeholder="e.g. Zone E — Northside" style="width:100%;padding:10px 12px;border:1.5px solid #d1d5db;border-radius:10px;font-size:14px;outline:none;" oninput="this.style.borderColor='#C07830'"/>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Assign To Canvasser</label>
+        <select id="tz-canvasser" style="width:100%;padding:10px 12px;border:1.5px solid #d1d5db;border-radius:10px;font-size:14px;background:#fff;outline:none;">
+          <option value="">— Unassigned —</option>
+          ${canvasserOptions}
+        </select>
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:8px;">Zone Colour</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${colorOptions}
+          <div id="tz-preview-swatch" style="width:22px;height:22px;border-radius:50%;background:#22c55e;border:3px solid #C07830;margin-left:6px;" title="Selected colour"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="saveTerritoryModal(${JSON.stringify(coords).replace(/"/g,'&quot;')})" style="flex:1;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Save Territory</button>
+        <button onclick="document.getElementById('territory-modal').style.display='none';" style="padding:11px 18px;background:#f3f4f6;border:none;border-radius:10px;font-size:14px;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`;
+  // Default select first color radio
+  const firstRadio = modal.querySelector('input[type=radio]');
+  if (firstRadio) firstRadio.checked = true;
+  modal.style.display = 'flex';
+}
+
+function saveTerritoryModal(coords) {
+  const name = document.getElementById('tz-name').value.trim();
+  const canvasserId = document.getElementById('tz-canvasser').value;
+  const selectedColor = document.querySelector('input[name="tz-color"]:checked');
+  const color = selectedColor ? selectedColor.value : '#7c3aed';
+
+  if (!name) {
+    document.getElementById('tz-name').style.borderColor = '#ef4444';
+    document.getElementById('tz-name').focus();
+    return;
+  }
+
+  document.getElementById('territory-modal').style.display = 'none';
+
+  const canvasser = canvassers.find(c => c.id === parseInt(canvasserId));
+  const zone = { coords, color, name, canvasserId: canvasserId || null, canvasserName: canvasser ? canvasser.name : null, houseCount: null };
+  customZones.push(zone);
+  ZONES.push(zone);
+
+  renderTerritoryOnMap(zone);
+  persistTerritories();
+
+  showToast(`✅ "${name}" saved — counting homes…`);
+
+  // Count buildings inside the polygon via Overpass
+  countHomesInTerritory(zone).then(count => {
+    zone.houseCount = count;
+    persistTerritories();
+    updateTerritoryLabel(zone);
+    if (document.getElementById('sidebar-zones').style.display !== 'none') renderZoneStats();
+    showToast(`📦 ${name}: ~${count} homes · ~${Math.ceil(count*1.15/10)*10} flyers needed`);
+  });
+}
+
+function renderTerritoryOnMap(zone) {
+  const { coords, color, name, canvasserName } = zone;
+  const poly = L.polygon(coords, { color, fillColor: color, fillOpacity: 0.15, weight: 2.5 })
+    .bindTooltip(`<strong>${name}</strong>${canvasserName ? '<br/>'+canvasserName : ''}`, { sticky:true })
+    .addTo(window._map);
+  const border = L.polygon(coords, { color, fillColor: 'transparent', weight: 3 }).addTo(window._map);
+  const centroid = coords.reduce((acc,c)=>[acc[0]+c[0],acc[1]+c[1]],[0,0]).map(v=>v/coords.length);
+  const countLabel = zone.houseCount != null ? `<div style='font-size:10px;font-weight:400;opacity:0.85;'>~${zone.houseCount} homes · ${Math.ceil(zone.houseCount*1.15/10)*10} flyers</div>` : `<div style='font-size:10px;opacity:0.7;'>Counting homes…</div>`;
+  const labelIcon = L.divIcon({
+    className:'',
+    html:`<div id="tz-label-${name.replace(/\s+/g,'_')}" style="background:${color};color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,0.25);line-height:1.5;">${name}${canvasserName?'<br><span style=\'font-weight:400;opacity:0.9\'>'+canvasserName+'</span>':''}${countLabel}</div>`,
+    iconAnchor:[0,0]
+  });
+  const labelMarker = L.marker(centroid, { icon: labelIcon, interactive: false }).addTo(window._map);
+  customZoneLayers.push({ poly, border, labelMarker, zone });
+}
+
+function updateTerritoryLabel(zone) {
+  // Re-render just the label marker for this zone
+  const entry = customZoneLayers.find(l => l.zone === zone);
+  if (!entry) return;
+  window._map.removeLayer(entry.labelMarker);
+  const { coords, color, name, canvasserName, houseCount } = zone;
+  const centroid = coords.reduce((acc,c)=>[acc[0]+c[0],acc[1]+c[1]],[0,0]).map(v=>v/coords.length);
+  const flyers = houseCount != null ? Math.ceil(houseCount*1.15/10)*10 : '—';
+  const countLabel = houseCount != null ? `<div style='font-size:10px;font-weight:400;opacity:0.85;'>~${houseCount} homes · ${flyers} flyers</div>` : '';
+  const labelIcon = L.divIcon({
+    className:'',
+    html:`<div style="background:${color};color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,0.25);line-height:1.5;">${name}${canvasserName?'<br><span style=\'font-weight:400;opacity:0.9\'>'+canvasserName+'</span>':''}${countLabel}</div>`,
+    iconAnchor:[0,0]
+  });
+  entry.labelMarker = L.marker(centroid, { icon: labelIcon, interactive: false }).addTo(window._map);
+}
+
+async function countHomesInTerritory(zone) {
+  const lats = zone.coords.map(c=>c[0]), lngs = zone.coords.map(c=>c[1]);
+  const bbox = `${Math.min(...lats)},${Math.min(...lngs)},${Math.max(...lats)},${Math.max(...lngs)}`;
+  const query = `[out:json][timeout:20];(way["building"](${bbox});relation["building"](${bbox}););out geom;`;
+  try {
+    const r = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+    const data = await r.json();
+    let count = 0;
+    (data.elements || []).forEach(el => {
+      let pt = null;
+      if (el.type === 'way' && el.geometry && el.geometry.length > 0) {
+        const g = el.geometry;
+        pt = [g.reduce((a,p)=>a+p.lat,0)/g.length, g.reduce((a,p)=>a+p.lon,0)/g.length];
+      } else if (el.type === 'relation' && el.members) {
+        const outer = el.members.find(m=>m.role==='outer'&&m.geometry);
+        if (outer) { const g=outer.geometry; pt=[g.reduce((a,p)=>a+p.lat,0)/g.length,g.reduce((a,p)=>a+p.lon,0)/g.length]; }
+      }
+      if (pt && pointInPolygon(pt[0], pt[1], zone.coords)) count++;
+    });
+    return count;
+  } catch(e) {
+    return 0;
+  }
+}
+
+function persistTerritories() {
+  try {
+    const toSave = customZones.map(z => ({
+      coords: z.coords, color: z.color, name: z.name,
+      canvasserId: z.canvasserId, canvasserName: z.canvasserName, houseCount: z.houseCount
+    }));
+    localStorage.setItem('customTerritories', JSON.stringify(toSave));
+  } catch(e) {}
+}
+
+function loadPersistedTerritories() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('customTerritories') || '[]');
+    saved.forEach(zone => {
+      customZones.push(zone);
+      ZONES.push(zone);
+      if (window._map) renderTerritoryOnMap(zone);
+    });
+  } catch(e) {}
+}
+</script>
+</body>
+</html>
