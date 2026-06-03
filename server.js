@@ -331,7 +331,7 @@ setTimeout(() => { midnightSnapshot(); setInterval(midnightSnapshot, 86400000); 
 
 // ─── SEED DEMO DATA ───────────────────────────────────────────────────────────
 
-function seedDemo() {
+function seedAccount() {
   const existing = db.prepare('SELECT id FROM businesses WHERE email = ?').get('christina@heliogrowth.com');
   if (existing) return;
 
@@ -339,95 +339,10 @@ function seedDemo() {
   db.prepare(`INSERT INTO businesses (id, name, owner_name, email, password_hash)
     VALUES (?, ?, ?, ?, ?)`).run(bizId, 'FrontPorch Marketing', 'Christina Dixon', 'christina@heliogrowth.com', bcrypt.hashSync('demo123', 10));
 
-  const cvData = [
-    { name:'Marcus T.', phone:'512-555-0101', location:'Pflugerville, TX', pin:'1111', status:'active', lat:30.5083, lng:-97.6789, acc:94 },
-    { name:'Priya K.', phone:'512-555-0102', location:'Round Rock, TX', pin:'2222', status:'active', lat:30.5140, lng:-97.6650, acc:88 },
-    { name:'DeShawn R.', phone:'512-555-0103', location:'Pflugerville, TX', pin:'3333', status:'active', lat:30.5020, lng:-97.6920, acc:97 },
-    { name:'Sofia L.', phone:'512-555-0104', location:'Georgetown, TX', pin:'4444', status:'idle', lat:30.5060, lng:-97.6820, acc:61 },
-    { name:'James W.', phone:'512-555-0105', location:'Cedar Park, TX', pin:'5555', status:'offline', lat:30.5200, lng:-97.6480, acc:42 },
-    { name:'Aisha B.', phone:'512-555-0106', location:'Austin, TX', pin:'6666', status:'offline', lat:30.4980, lng:-97.6560, acc:55 },
-  ];
-
-  const cvIds = {};
-  cvData.forEach(c => {
-    const id = uuid();
-    cvIds[c.name] = id;
-    db.prepare(`INSERT INTO canvassers (id, business_id, name, phone, location, pin_hash, status, lat, lng, last_seen, accountability_score)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, bizId, c.name, c.phone, c.location, bcrypt.hashSync(c.pin, 10), c.status, c.lat, c.lng, Date.now()/1000, c.acc);
-  });
-
-  const canvassData = [
-    { title:'Summer Push', type:'Door Hangers', status:'active', location:'Williamson County, TX', date_start:'2026-05-20' },
-    { title:'Local Promo Blitz', type:'Door Hangers', status:'active', location:'Williamson County, TX', date_start:'2026-05-28', date_end:'2026-06-02' },
-    { title:'Spring Awareness', type:'Flyers', status:'completed', location:'Travis County, TX', date_start:'2026-04-01', date_end:'2026-04-30' },
-  ];
-  const canvassIds = [];
-  canvassData.forEach(c => {
-    const id = uuid();
-    canvassIds.push(id);
-    db.prepare(`INSERT INTO canvasses (id, business_id, title, type, status, location, date_start, date_end)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, bizId, c.title, c.type, c.status, c.location, c.date_start||null, c.date_end||null);
-  });
-
-  // Seed zones for active canvasses
-  const zoneData = [
-    { idx:0, name:'Oak Creek — North Block', color:'#22c55e', coords:JSON.stringify([[30.518,-97.700],[30.518,-97.680],[30.508,-97.680],[30.508,-97.700]]) },
-    { idx:0, name:'Oak Creek — South Block', color:'#0ea5e9', coords:JSON.stringify([[30.508,-97.700],[30.508,-97.680],[30.498,-97.680],[30.498,-97.700]]) },
-    { idx:1, name:'Heritage Hills',          color:'#f59e0b', coords:JSON.stringify([[30.525,-97.680],[30.525,-97.655],[30.510,-97.655],[30.510,-97.680]]) },
-    { idx:1, name:'Windermere Estates',      color:'#7c3aed', coords:JSON.stringify([[30.510,-97.680],[30.510,-97.655],[30.496,-97.655],[30.496,-97.680]]) },
-  ];
-  zoneData.forEach(z => {
-    db.prepare(`INSERT INTO zones (id, canvass_id, name, color, coords, status) VALUES (?, ?, ?, ?, ?, 'available')`)
-      .run(uuid(), canvassIds[z.idx], z.name, z.color, z.coords);
-  });
-
-  // Seed door knocks
-  const outcomes = ['converted','interested','not_home','no_thanks'];
-  const activeCvs = cvData.filter(c => c.status !== 'offline');
-  const doorCounts = [68, 54, 71, 54];
-  activeCvs.forEach((c, ci) => {
-    const cvId = cvIds[c.name];
-    const count = doorCounts[ci];
-    const convRate = ci === 0 ? 0.16 : ci === 1 ? 0.15 : ci === 2 ? 0.13 : 0.06;
-    for (let i = 0; i < count; i++) {
-      const r = 0.004 + Math.random()*0.01, a = Math.random()*2*Math.PI;
-      const rand = Math.random();
-      const outcome = rand < convRate ? 'converted' : rand < convRate+0.23 ? 'interested' : rand < convRate+0.23+0.45 ? 'not_home' : 'no_thanks';
-      const hoursAgo = Math.random() * 6;
-      db.prepare(`INSERT INTO door_knocks (id, canvasser_id, business_id, canvass_id, lat, lng, outcome, knocked_at, verified)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`).run(
-        uuid(), cvId, bizId, canvassIds[0],
-        c.lat + Math.cos(a)*r, c.lng + Math.sin(a)*r,
-        outcome, Math.floor(Date.now()/1000 - hoursAgo*3600)
-      );
-    }
-  });
-
-  // Seed messages
-  const msgData = [
-    { name:'Erica A. Lopez', cvId: cvIds['Sofia L.'], texts: [
-      {from:'canvasser', text:'Hey Christina! What is the update with flyering this week?', ago: 86400},
-      {from:'business', text:'Hi! We\'re back on for Thursday and Friday. Same zones as before.', ago: 83000},
-    ]},
-  ];
-  msgData.forEach(m => {
-    m.texts.forEach(t => {
-      db.prepare(`INSERT INTO messages (id, business_id, canvasser_id, from_type, text, sent_at)
-        VALUES (?, ?, ?, ?, ?, ?)`).run(uuid(), bizId, m.cvId, t.from, t.text, Math.floor(Date.now()/1000 - t.ago));
-    });
-  });
-
-  console.log('✅ Demo data seeded. Business login: christina@heliogrowth.com / demo123');
-  console.log('   Canvasser PINs: Marcus=1111, Priya=2222, DeShawn=3333, Sofia=4444, James=5555, Aisha=6666');
+  console.log('✅ Account created. Login: christina@heliogrowth.com / demo123');
 }
 
-seedDemo();
-
-// Seed demo historical snapshots (safe to call every boot — uses INSERT OR IGNORE)
-{
-  const biz = db.prepare("SELECT id FROM businesses WHERE email = 'christina@heliogrowth.com'").get();
-  if (biz) seedDemoSnapshots(biz.id);
-}
+seedAccount();
 
 // ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
 
