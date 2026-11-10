@@ -28,8 +28,10 @@ theme (moving or still). Each runs at a clock time or relative to sunset/sunrise
 on chosen days, for All lights, Backyard, or one controller. The server runs them,
 so your phone can be off.
 
-- Tap **📍 Set location for sunset** once so sunrise/sunset can be worked out.
-- Times use the time zone of the phone that last saved timers.
+- Sunrise/sunset are worked out fresh every day for **Austin, TX** in **Central Time**
+  (daylight saving included), so sunset timers follow the real time all year.
+- Somewhere else? Set `HOME_LAT`, `HOME_LON`, `HOME_NAME` and `HOME_TIMEZONE`
+  (e.g. `America/Denver`), or tap **📍 Use this phone's location** on the page.
 - **Keep timers across redeploys (Railway):** open the service, choose **Attach volume**
   (or right-click the service → Volume), mount it at `/data`, then add the variable
   `DATA_DIR` = `/data`. Without a volume, timers are erased on each redeploy and the

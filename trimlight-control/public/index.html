@@ -92,7 +92,7 @@
       <p id="sunInfo" style="color:var(--muted); font-size:.85rem"></p>
       <div class="row">
         <button class="primary" onclick="editTimer()">+ Add timer</button>
-        <button onclick="useMyLocation()">📍 Set location for sunset</button>
+        <button onclick="useMyLocation()">📍 Use this phone's location</button>
       </div>
 
       <div id="timerForm" class="hidden" style="margin-top:14px; border-top:1px solid #334155; padding-top:10px">
@@ -390,16 +390,16 @@ function renderTimers() {
     </div>`;
   }).join('') : '<p style="color:var(--muted)">No timers yet. Add one to switch patterns automatically.</p>';
   const sun = timerState.sun || {};
-  $('sunInfo').textContent = timerState.location
-    ? `Today: sunrise ${sun.sunrise ? to12h(sun.sunrise) : '—'}, sunset ${sun.sunset ? to12h(sun.sunset) : '—'} (${timerState.timezone})`
-    : 'Sunrise/sunset timers need your location. Tap "Set location for sunset" once.';
+  const t12 = v => v ? to12h(v) : '—';
+  $('sunInfo').innerHTML = `☀️ <b>${esc(sun.place || 'Home')}</b> · Central Time<br>` +
+    `Today: sunrise ${t12(sun.sunrise)}, sunset ${t12(sun.sunset)}<br>` +
+    `Tomorrow: sunrise ${t12(sun.tomorrowSunrise)}, sunset ${t12(sun.tomorrowSunset)}<br>` +
+    `<small>Sunset timers follow the real time each day as it changes through the year.</small>` +
+    (sun.place && sun.place !== 'Austin, TX' ? ` <a href="#" onclick="resetLocation();return false" style="color:var(--accent)">Use Austin, TX</a>` : '');
 }
 
 async function persistTimers(extra = {}) {
-  const res = await api('POST', '/api/timers', {
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    location: timerState.location, timers: timerState.timers, ...extra,
-  });
+  const res = await api('POST', '/api/timers', { timers: timerState.timers, ...extra });
   await loadTimers();
   return res;
 }
@@ -445,7 +445,6 @@ function editTimer(id) {
 async function saveTimer() {
   const [type, holiday, theme] = $('tAction').value.split('|');
   const whenType = $('tWhenType').value;
-  if (whenType !== 'time' && !timerState.location) return alert('Set your location first (📍 button) so sunset/sunrise times can be worked out.');
   const t = {
     id: editingId || uid(),
     enabled: editingId ? timerState.timers.find(x => x.id === editingId).enabled : true,
@@ -477,11 +476,15 @@ async function testTimer(id) {
   } catch (e) { msg(e.message, false); }
 }
 
+async function resetLocation() {
+  try { await persistTimers({ location: 'default' }); msg('Using Austin, TX ✓'); } catch (e) { msg(e.message, false); }
+}
+
 function useMyLocation() {
   if (!navigator.geolocation) return alert('This browser cannot share location.');
   navigator.geolocation.getCurrentPosition(async pos => {
-    timerState.location = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-    try { await persistTimers(); msg('Location saved for sunset/sunrise ✓'); } catch (e) { msg(e.message, false); }
+    const location = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'This phone\'s location' };
+    try { await persistTimers({ location }); msg('Location saved for sunset/sunrise ✓'); } catch (e) { msg(e.message, false); }
   }, err => alert('Could not get location: ' + err.message), { enableHighAccuracy: false, timeout: 15000 });
 }
 

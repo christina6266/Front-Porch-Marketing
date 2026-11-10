@@ -132,18 +132,25 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_PERSISTENT = !!process.env.DATA_DIR;
 const TIMERS_FILE = path.join(DATA_DIR, 'timers.json');
 
-let timerData = { timezone: 'America/Chicago', location: null, timers: [], lastRuns: {} };
+// Home location and time zone for sunrise/sunset. Defaults to Austin, TX (Central Time);
+// override with HOME_LAT / HOME_LON / HOME_NAME / HOME_TIMEZONE, or the page's 📍 button.
+const HOME_TIMEZONE = process.env.HOME_TIMEZONE || 'America/Chicago';
+const DEFAULT_LOCATION = {
+  lat: Number(process.env.HOME_LAT) || 30.267,
+  lon: Number(process.env.HOME_LON) || -97.743,
+  name: process.env.HOME_NAME || 'Austin, TX',
+};
+
+let timerData = { timezone: HOME_TIMEZONE, location: DEFAULT_LOCATION, timers: [], lastRuns: {} };
 try { timerData = { ...timerData, ...JSON.parse(fs.readFileSync(TIMERS_FILE, 'utf8')) }; } catch {}
+if (!timerData.location) timerData.location = DEFAULT_LOCATION;
+timerData.timezone = HOME_TIMEZONE;
 
 function writeTimerData() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const tmp = TIMERS_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(timerData, null, 2));
   fs.renameSync(tmp, TIMERS_FILE);
-}
-
-function validTimezone(tz) {
-  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
 }
 
 function cleanTimer(t) {
@@ -166,11 +173,13 @@ function cleanTimer(t) {
 
 function saveTimerData(b) {
   if (!Array.isArray(b.timers) || b.timers.length > 100) throw new HttpError(400, 'timers must be a list (max 100)');
-  if (b.timezone && !validTimezone(b.timezone)) throw new HttpError(400, 'Unknown time zone');
-  const loc = b.location && Number.isFinite(+b.location.lat) && Number.isFinite(+b.location.lon)
-    ? { lat: +(+b.location.lat).toFixed(3), lon: +(+b.location.lon).toFixed(3) } : timerData.location;
+  let loc = timerData.location;
+  if (b.location === 'default') loc = DEFAULT_LOCATION;
+  else if (b.location && Number.isFinite(+b.location.lat) && Number.isFinite(+b.location.lon)) {
+    loc = { lat: +(+b.location.lat).toFixed(3), lon: +(+b.location.lon).toFixed(3), name: String(b.location.name || 'Custom location').slice(0, 60) };
+  }
   timerData = {
-    timezone: b.timezone || timerData.timezone,
+    timezone: HOME_TIMEZONE,
     location: loc,
     timers: b.timers.map(cleanTimer),
     lastRuns: timerData.lastRuns,
@@ -230,7 +239,12 @@ function timerMinute(t, lp) {
 const fmt = mins => mins === null ? null : `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 function sunPreview() {
   const lp = localParts();
-  return { sunrise: fmt(sunMinutes(lp.y, lp.m, lp.d, true)), sunset: fmt(sunMinutes(lp.y, lp.m, lp.d, false)), today: lp.dateKey };
+  const tm = localParts(new Date(Date.now() + 86400000));
+  return {
+    place: timerData.location && timerData.location.name, timezone: timerData.timezone,
+    sunrise: fmt(sunMinutes(lp.y, lp.m, lp.d, true)), sunset: fmt(sunMinutes(lp.y, lp.m, lp.d, false)),
+    tomorrowSunrise: fmt(sunMinutes(tm.y, tm.m, tm.d, true)), tomorrowSunset: fmt(sunMinutes(tm.y, tm.m, tm.d, false)),
+  };
 }
 
 async function targetDevices(target) {
