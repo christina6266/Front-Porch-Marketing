@@ -70,7 +70,16 @@ function httpsRequest(url, { method, headers }, payload) {
   });
 }
 
+// Trimlight's cloud rejects bursts of requests (error 20000), so keep ~300 ms between calls.
+let nextSlot = 0;
+async function throttle() {
+  const wait = nextSlot - Date.now();
+  nextSlot = Math.max(Date.now(), nextSlot) + 300;
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+}
+
 async function trimlight(method, apiPath, body) {
+  await throttle();
   if (!configured()) throw new HttpError(503, 'Set TRIMLIGHT_CLIENT_ID and TRIMLIGHT_CLIENT_SECRET.');
   const clientId = cleanCredential('TRIMLIGHT_CLIENT_ID');
   const clientSecret = cleanCredential('TRIMLIGHT_CLIENT_SECRET');
@@ -107,7 +116,8 @@ const clamp = (v, lo, hi, dflt) => {
 };
 
 // Turn { zones: [{ color, count }] } (up to 30 zones, each its own LED count) or the simpler
-// { colors: [...], ledsPerColor } into Trimlight pixels. The controller repeats them along the strip.
+// { colors: [...], ledsPerColor } into Trimlight's 30 pixel entries (unused entries have count 0).
+// The controller repeats the lit entries along the strip.
 function toPixels(b) {
   let zones = Array.isArray(b.zones) && b.zones.length
     ? b.zones.map(z => ({ color: z.color, count: clamp(z.count, 0, 60, 1) })).filter(z => z.count > 0)
@@ -115,18 +125,80 @@ function toPixels(b) {
         .map(color => ({ color, count: clamp(b.ledsPerColor, 1, 60, 1) }));
   zones = zones.slice(0, 30);
   if (!zones.length) zones = [{ color: '#ffffff', count: 1 }];
-  return zones.map((z, index) => ({ index, count: z.count, color: hexToInt(z.color), disable: false }));
+  return Array.from({ length: 30 }, (_, index) => zones[index]
+    ? { index, count: zones[index].count, color: hexToInt(zones[index].color), disable: false }
+    : { index, count: 0, color: 0, disable: false });
+}
+
+// ─── Showing effects ───────────────────────────────────────────────────────────
+// Trimlight's "preview" endpoint is broken on current firmware (1.17.x): it shows the colors but
+// ignores the animation. Instead we save the effect into one reusable slot per controller and then
+// play it (effect/save + effect/view). Slots: "Lights App" (custom patterns) and "Lights App FX"
+// (built-in animations). They also appear in Trimlight's own app.
+const SLOT_NAMES = { 1: 'Lights App', 0: 'Lights App FX' };
+const slotIds = new Map();      // `${deviceId}|${category}` → effect id on the controller
+const deviceQueues = new Map(); // deviceId → promise chain, so one change at a time per controller
+
+function withDeviceLock(deviceId, fn) {
+  const prev = deviceQueues.get(deviceId) || Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  deviceQueues.set(deviceId, run.catch(() => {}));
+  return run;
+}
+
+async function findSlot(deviceId, category) {
+  const key = `${deviceId}|${category}`;
+  if (slotIds.has(key)) return slotIds.get(key);
+  // Never create a slot blind: if the controller's effect list can't be read, a second copy could
+  // end up on the controller, so let the error surface instead.
+  const detail = await trimlight('POST', '/v1/oauth/resources/device/get', { deviceId, currentDate: now() });
+  const existing = (detail.effects || []).find(e => e.name === SLOT_NAMES[category]);
+  if (existing && existing.id !== undefined) slotIds.set(key, existing.id);
+  return existing ? existing.id : -1;
+}
+
+async function saveAndPlay(deviceId, category, effect) {
+  return withDeviceLock(deviceId, async () => {
+    const key = `${deviceId}|${category}`;
+    const save = id => trimlight('POST', '/v1/oauth/resources/device/effect/save', {
+      deviceId, payload: { id, name: SLOT_NAMES[category], category, ...effect },
+    });
+    let id = await findSlot(deviceId, category);
+    let saved;
+    try {
+      saved = await save(id);
+    } catch (e) {
+      // A cached slot may have been deleted in Trimlight's app: look it up again once.
+      if (id === -1 || !(e.details && e.details.code !== undefined)) throw e;
+      slotIds.delete(key);
+      id = await findSlot(deviceId, category);
+      saved = await save(id);
+    }
+    if (saved && saved.id !== undefined) id = saved.id;
+    if (id === -1) {                       // saved but no id returned: find it by name
+      slotIds.delete(key);
+      id = await findSlot(deviceId, category);
+      if (id === -1) throw new HttpError(502, 'Trimlight saved the pattern but did not return it');
+    }
+    slotIds.set(key, id);
+    await trimlight('POST', '/v1/oauth/resources/device/effect/view', { deviceId, payload: { id } });
+    return { ok: true, slot: id };
+  });
 }
 
 function showCustom(deviceId, b) {
-  return trimlight('POST', '/v1/oauth/resources/device/effect/preview', {
-    deviceId,
-    payload: {
-      category: 1,
-      mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
-      brightness: clamp(b.brightness, 0, 255, 200),
-      pixels: toPixels(b),
-    },
+  return saveAndPlay(deviceId, 1, {
+    mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
+    brightness: clamp(b.brightness, 0, 255, 200),
+    pixels: toPixels(b),
+  });
+}
+
+function showBuiltin(deviceId, b) {
+  return saveAndPlay(deviceId, 0, {
+    mode: clamp(b.mode, 0, 179, 0), speed: clamp(b.speed, 0, 255, 100),
+    brightness: clamp(b.brightness, 0, 255, 200), pixelLen: clamp(b.pixelLen, 1, 90, 30),
+    reverse: !!b.reverse,
   });
 }
 
@@ -355,16 +427,7 @@ const routes = [
     trimlight('POST', '/v1/oauth/resources/device/effect/view', { deviceId: id, payload: { id: Number(effectId) } })],
 
   // Built-in animation: { mode 0-179, speed 0-255, brightness 0-255, pixelLen 1-90, reverse }
-  ['POST', /^\/api\/devices\/([^/]+)\/builtin$/, ([id], b) =>
-    trimlight('POST', '/v1/oauth/resources/device/effect/preview', {
-      deviceId: id,
-      payload: {
-        category: 0,
-        mode: clamp(b.mode, 0, 179, 0), speed: clamp(b.speed, 0, 255, 100),
-        brightness: clamp(b.brightness, 0, 255, 200), pixelLen: clamp(b.pixelLen, 1, 90, 30),
-        reverse: !!b.reverse,
-      },
-    })],
+  ['POST', /^\/api\/devices\/([^/]+)\/builtin$/, ([id], b) => showBuiltin(id, b)],
 
   // Custom colors: { colors: ["#ff0000", ...], mode 0-16 (0 = static), speed, brightness, ledsPerColor }
   ['POST', /^\/api\/devices\/([^/]+)\/custom$/, ([id], b) => showCustom(id, b)],
