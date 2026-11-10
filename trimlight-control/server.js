@@ -78,6 +78,18 @@ async function throttle() {
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
 }
 
+// Recent Trimlight calls for the Diagnostics page (request bodies and replies, no credentials).
+const callLog = [];
+function recordCall(method, apiPath, body, status, json) {
+  const short = v => { const t = JSON.stringify(v); return t && t.length > 1500 ? t.slice(0, 1500) + '…' : t; };
+  callLog.push({
+    at: new Date().toISOString(), method, path: apiPath.replace('/v1/oauth/resources/', ''),
+    sent: short(body), status, code: json.code, desc: json.desc,
+    reply: apiPath.endsWith('/device/get') ? '(device details)' : short(json.payload),
+  });
+  if (callLog.length > 40) callLog.shift();
+}
+
 async function trimlight(method, apiPath, body) {
   await throttle();
   if (!configured()) throw new HttpError(503, 'Set TRIMLIGHT_CLIENT_ID and TRIMLIGHT_CLIENT_SECRET.');
@@ -93,6 +105,7 @@ async function trimlight(method, apiPath, body) {
   const text = resp.text;
   let json;
   try { json = JSON.parse(text); } catch { json = { raw: text }; }
+  recordCall(method, apiPath, body, resp.status, json);
   // Trimlight returns { code: 0, desc: 'success', payload: ... } on success
   if (!resp.ok || (json.code !== undefined && json.code !== 0)) {
     throw new HttpError(resp.ok ? 502 : resp.status, json.desc || json.message || `Trimlight error (HTTP ${resp.status})`, json);
@@ -431,6 +444,17 @@ const routes = [
 
   // Custom colors: { colors: ["#ff0000", ...], mode 0-16 (0 = static), speed, brightness, ledsPerColor }
   ['POST', /^\/api\/devices\/([^/]+)\/custom$/, ([id], b) => showCustom(id, b)],
+
+  // Diagnostics: ask the controller to report fresh data, then return its full details.
+  ['GET', /^\/api\/debug\/device\/([^/]+)$/, async ([id]) => {
+    let shadow = 'ok';
+    try { await trimlight('GET', '/v1/oauth/resources/device/notify-update-shadow', { deviceId: id, currentDate: now() }); }
+    catch (e) { shadow = e.message; }
+    await new Promise(r => setTimeout(r, 2500));
+    const detail = await trimlight('POST', '/v1/oauth/resources/device/get', { deviceId: id, currentDate: now() });
+    return { shadow, detail };
+  }],
+  ['GET', /^\/api\/debug\/log$/, () => ({ calls: callLog })],
 
   ['GET', /^\/api\/patterns$/, () => ({ patterns, persistent: DATA_PERSISTENT })],
   ['POST', /^\/api\/patterns$/, (_, b) => savePatterns(b)],
