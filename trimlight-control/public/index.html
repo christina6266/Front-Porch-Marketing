@@ -35,14 +35,13 @@
 
   <section id="login" class="card hidden">
     <h2>Sign in</h2>
-    <label>Email</label><input id="email" type="email" autocomplete="username">
     <label>Password</label><input id="password" type="password" autocomplete="current-password">
     <div style="margin-top:12px"><button class="primary" onclick="login()">Sign in</button></div>
   </section>
 
   <section id="notConfigured" class="card hidden">
     <h2>Not connected yet</h2>
-    <p>Add <code>TRIMLIGHT_CLIENT_ID</code> and <code>TRIMLIGHT_CLIENT_SECRET</code> to the server's environment variables (Railway → Variables), then reload this page.</p>
+    <p>Add <code>TRIMLIGHT_CLIENT_ID</code> and <code>TRIMLIGHT_CLIENT_SECRET</code> to this app's environment variables, then reload this page.</p>
   </section>
 
   <div id="app" class="hidden">
@@ -106,7 +105,7 @@
 </main>
 
 <script>
-let token = localStorage.getItem('biz_token');
+let token = localStorage.getItem('tl_token');
 let colors = ['#ff0000', '#00ff00'];
 
 function $(id) { return document.getElementById(id); }
@@ -120,30 +119,30 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401) { localStorage.removeItem('biz_token'); token = null; start(); throw new Error('Please sign in'); }
+  if (r.status === 401) { localStorage.removeItem('tl_token'); token = null; show('app', false); show('login'); throw new Error('Please sign in'); }
   if (!r.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 
 async function login() {
-  const r = await fetch('/api/auth/business/login', {
+  const r = await fetch('/api/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: $('email').value, password: $('password').value }),
+    body: JSON.stringify({ password: $('password').value }),
   });
   const data = await r.json();
   if (!r.ok) return alert(data.error || 'Login failed');
-  token = data.token; localStorage.setItem('biz_token', token); start();
+  token = data.token; localStorage.setItem('tl_token', token); start();
 }
 
 async function start() {
   show('login', !token); show('app', false); show('notConfigured', false);
   if (!token) return;
-  const s = await api('GET', '/api/trimlight/status');
+  const s = await api('GET', '/api/status');
   if (!s.configured) return show('notConfigured');
   show('app');
   renderSwatches();
   try {
-    const res = await api('GET', '/api/trimlight/devices');
+    const res = await api('GET', '/api/devices');
     const list = res.data || res.devices || (Array.isArray(res) ? res : []);
     $('device').innerHTML = list.map(d =>
       `<option value="${d.deviceId}">${d.name || d.deviceId}${d.connectivity === 0 ? ' (offline)' : ''}</option>`).join('')
@@ -157,7 +156,7 @@ const deviceId = () => $('device').value;
 async function loadDevice() {
   if (!deviceId()) return;
   try {
-    const d = await api('GET', '/api/trimlight/devices/' + encodeURIComponent(deviceId()));
+    const d = await api('GET', '/api/devices/' + encodeURIComponent(deviceId()));
     const effects = d.effects || [];
     $('effects').innerHTML = effects.length
       ? effects.map(e => `<button onclick="runEffect(${e.id})">${e.name || 'Pattern ' + e.id}</button>`).join('')
@@ -172,18 +171,18 @@ async function doIt(label, fn) {
 }
 
 function setSwitch(state) {
-  doIt('Lights ' + state, () => api('POST', `/api/trimlight/devices/${encodeURIComponent(deviceId())}/switch`, { state }));
+  doIt('Lights ' + state, () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/switch`, { state }));
 }
 function runEffect(id) {
-  doIt('Pattern started', () => api('POST', `/api/trimlight/devices/${encodeURIComponent(deviceId())}/effects/${id}/run`));
+  doIt('Pattern started', () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/effects/${id}/run`));
 }
 function applyCustom() {
-  doIt('Colors applied', () => api('POST', `/api/trimlight/devices/${encodeURIComponent(deviceId())}/custom`, {
+  doIt('Colors applied', () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/custom`, {
     colors, mode: +$('customMode').value, ledsPerColor: +$('lpc').value, brightness: +$('bri').value, speed: +$('spd').value,
   }));
 }
 function applyBuiltin() {
-  doIt('Animation ' + $('bMode').value, () => api('POST', `/api/trimlight/devices/${encodeURIComponent(deviceId())}/builtin`, {
+  doIt('Animation ' + $('bMode').value, () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/builtin`, {
     mode: +$('bMode').value, brightness: +$('bri').value, speed: +$('spd').value,
   }));
 }
