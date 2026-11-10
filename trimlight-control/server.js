@@ -106,16 +106,26 @@ const clamp = (v, lo, hi, dflt) => {
   return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : dflt;
 };
 
+// Turn { zones: [{ color, count }] } (up to 30 zones, each its own LED count) or the simpler
+// { colors: [...], ledsPerColor } into Trimlight pixels. The controller repeats them along the strip.
+function toPixels(b) {
+  let zones = Array.isArray(b.zones) && b.zones.length
+    ? b.zones.map(z => ({ color: z.color, count: clamp(z.count, 0, 60, 1) })).filter(z => z.count > 0)
+    : (Array.isArray(b.colors) && b.colors.length ? b.colors : ['#ffffff'])
+        .map(color => ({ color, count: clamp(b.ledsPerColor, 1, 60, 1) }));
+  zones = zones.slice(0, 30);
+  if (!zones.length) zones = [{ color: '#ffffff', count: 1 }];
+  return zones.map((z, index) => ({ index, count: z.count, color: hexToInt(z.color), disable: false }));
+}
+
 function showCustom(deviceId, b) {
-  const colors = (Array.isArray(b.colors) && b.colors.length ? b.colors : ['#ffffff']).slice(0, 30);
-  const count = clamp(b.ledsPerColor, 1, 60, 1);
   return trimlight('POST', '/v1/oauth/resources/device/effect/preview', {
     deviceId,
     payload: {
       category: 1,
       mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
       brightness: clamp(b.brightness, 0, 255, 200),
-      pixels: colors.map((c, index) => ({ index, count, color: hexToInt(c), disable: false })),
+      pixels: toPixels(b),
     },
   });
 }
@@ -153,11 +163,40 @@ function writeTimerData() {
   fs.renameSync(tmp, TIMERS_FILE);
 }
 
+// ─── Saved patterns (made in the Pattern Builder) ─────────────────────────────
+const PATTERNS_FILE = path.join(DATA_DIR, 'patterns.json');
+let patterns = [];
+try { patterns = JSON.parse(fs.readFileSync(PATTERNS_FILE, 'utf8')); } catch {}
+
+const isHex = c => /^#[0-9a-f]{6}$/i.test(c);
+function cleanPattern(x) {
+  const zones = (Array.isArray(x.zones) ? x.zones : []).slice(0, 30)
+    .map(z => ({ color: isHex(z.color) ? z.color.toLowerCase() : '#ffffff', count: clamp(z.count, 0, 60, 1) }))
+    .filter(z => z.count > 0);
+  if (!zones.length) throw new HttpError(400, 'A pattern needs at least one zone with LEDs');
+  return {
+    id: String(x.id || crypto.randomBytes(6).toString('hex')).slice(0, 40),
+    name: String(x.name || 'My pattern').slice(0, 40),
+    zones,
+    mode: clamp(x.mode, 0, 16, 0), speed: clamp(x.speed, 0, 255, 100), brightness: clamp(x.brightness, 0, 255, 200),
+  };
+}
+
+function savePatterns(b) {
+  if (!Array.isArray(b.patterns) || b.patterns.length > 200) throw new HttpError(400, 'patterns must be a list (max 200)');
+  patterns = b.patterns.map(cleanPattern);
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(PATTERNS_FILE + '.tmp', JSON.stringify(patterns, null, 2));
+  fs.renameSync(PATTERNS_FILE + '.tmp', PATTERNS_FILE);
+  return { ok: true, persistent: DATA_PERSISTENT };
+}
+
 function cleanTimer(t) {
   const type = ['time', 'sunset', 'sunrise'].includes(t?.when?.type) ? t.when.type : 'time';
   const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t?.when?.time) ? t.when.time : '17:00';
-  const actionType = ['on', 'off', 'theme'].includes(t?.action?.type) ? t.action.type : 'on';
+  const actionType = ['on', 'off', 'theme', 'pattern'].includes(t?.action?.type) ? t.action.type : 'on';
   if (actionType === 'theme' && !findTheme(t.action.holiday, t.action.theme)) throw new HttpError(400, `Unknown theme: ${t.action.theme}`);
+  if (actionType === 'pattern' && !patterns.some(x => x.id === t.action.patternId)) throw new HttpError(400, 'Unknown saved pattern');
   return {
     id: String(t.id || crypto.randomBytes(6).toString('hex')).slice(0, 40),
     enabled: t.enabled !== false,
@@ -167,7 +206,9 @@ function cleanTimer(t) {
     target: String(t.target || 'group:all').slice(0, 80),
     action: actionType === 'theme'
       ? { type: 'theme', holiday: t.action.holiday, theme: t.action.theme, still: !!t.action.still }
-      : { type: actionType },
+      : actionType === 'pattern'
+        ? { type: 'pattern', patternId: t.action.patternId, still: !!t.action.still }
+        : { type: actionType },
   };
 }
 
@@ -260,7 +301,9 @@ async function targetDevices(target) {
 
 async function runTimer(t) {
   const devices = await targetDevices(t.target);
-  const theme = t.action.type === 'theme' && findTheme(t.action.holiday, t.action.theme);
+  const theme = t.action.type === 'theme' ? findTheme(t.action.holiday, t.action.theme)
+    : t.action.type === 'pattern' ? patterns.find(x => x.id === t.action.patternId) : null;
+  if (t.action.type === 'pattern' && !theme) throw new HttpError(404, 'That saved pattern was deleted');
   const results = await Promise.allSettled(devices.map(async d => {
     if (t.action.type === 'off') return setSwitch(d.deviceId, 0);
     await setSwitch(d.deviceId, 1);
@@ -325,6 +368,9 @@ const routes = [
 
   // Custom colors: { colors: ["#ff0000", ...], mode 0-16 (0 = static), speed, brightness, ledsPerColor }
   ['POST', /^\/api\/devices\/([^/]+)\/custom$/, ([id], b) => showCustom(id, b)],
+
+  ['GET', /^\/api\/patterns$/, () => ({ patterns, persistent: DATA_PERSISTENT })],
+  ['POST', /^\/api\/patterns$/, (_, b) => savePatterns(b)],
 
   ['GET', /^\/api\/timers$/, () => ({ ...timerData, lastRuns: undefined, persistent: DATA_PERSISTENT, sun: sunPreview() })],
   ['POST', /^\/api\/timers$/, (_, b) => saveTimerData(b)],

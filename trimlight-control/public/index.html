@@ -20,8 +20,6 @@
   select, input[type=number], input[type=email], input[type=password] { width:100%; padding:10px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; }
   label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
   input[type=range] { width:100%; }
-  .swatches { display:flex; gap:8px; flex-wrap:wrap; }
-  .swatches input[type=color] { width:44px; height:44px; border:0; padding:0; background:none; }
   .presets button { font-size:.85rem; padding:8px 10px; }
   .toggle button.on { background:var(--accent); }
   #holidayTabs button { font-weight:600; }
@@ -42,6 +40,26 @@
   .days button.on { background:var(--accent); }
   .warn { background:#422006; color:#fcd34d; border-radius:10px; padding:10px; font-size:.85rem; margin-bottom:10px; }
   input[type=text], input[type=time] { width:100%; padding:10px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; }
+  .hint { color:var(--muted); font-size:.82rem; margin:0 0 10px; }
+  .palette { display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-bottom:10px; }
+  .dot { aspect-ratio:1; border-radius:50%; border:2px solid #475569; display:flex; align-items:center; justify-content:center;
+         font-weight:800; font-size:.8rem; padding:0; cursor:pointer; }
+  .palette .dot.add { background:#334155; color:var(--text); font-size:1.3rem; border-style:dashed; }
+  .zones { display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; margin:10px 0; }
+  .zones .dot { font-size:1rem; }
+  .zones .dot.empty { background:#0b1222 !important; color:#475569; border-style:dashed; }
+  .zones .dot.sel { outline:3px solid var(--accent); outline-offset:2px; }
+  .house { display:flex; height:14px; border-radius:7px; overflow:hidden; background:#000; margin-bottom:4px; }
+  .house span { flex:1; }
+  .zonebar { display:flex; gap:6px; align-items:center; }
+  .zonebar span { color:var(--muted); font-size:.85rem; }
+  .zonebar button { padding:8px 12px; }
+  .zonebar input { width:64px; text-align:center; padding:8px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; }
+  .pat { display:flex; gap:8px; align-items:center; padding:8px 0; border-top:1px solid #334155; }
+  .pat .stripe { display:flex; width:70px; height:14px; border-radius:7px; overflow:hidden; flex:none; }
+  .pat .stripe span { flex:1; }
+  .pat b { flex:1; font-size:.9rem; font-weight:600; }
+  .pat button { padding:8px 10px; font-size:.8rem; }
   #msg { min-height:1.2em; font-size:.9rem; margin-top:8px; }
   #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
   .hidden { display:none; }
@@ -132,29 +150,36 @@
     </section>
 
     <section class="card">
-      <h2>Colors</h2>
-      <div class="presets row" style="margin-bottom:12px">
-        <button onclick="preset(['#ffffff'])">Warm white</button>
-        <button onclick="preset(['#ff0000','#00ff00'])">Christmas</button>
-        <button onclick="preset(['#ff7700','#7a00ff'])">Halloween</button>
-        <button onclick="preset(['#ff0000','#ffffff','#0000ff'])">USA</button>
-        <button onclick="preset(['#00a651','#ffffff'])">St. Patrick's</button>
-        <button onclick="preset(['#ff69b4','#ff0000','#ffffff'])">Valentine's</button>
+      <h2>🎨 Pattern Builder</h2>
+      <p class="hint">Tap a zone, then tap a color to paint it. The number in each zone is how many LEDs it lights. Empty zones are skipped and the pattern repeats around the whole house.</p>
+      <div id="palette" class="palette"></div>
+      <input id="customColor" type="color" value="#ff8800" class="hidden" onchange="addCustomColor(this.value)">
+      <div id="housePreview" class="house"></div>
+      <div id="zones" class="zones"></div>
+      <div class="zonebar">
+        <span id="zoneLabel">Zone 1</span>
+        <button onclick="zoneCount(-1)">−</button>
+        <input id="zoneCountInput" type="number" min="0" max="60" inputmode="numeric" oninput="setZoneCount(this.value, true)">
+        <button onclick="zoneCount(1)">+</button>
+        <span>LEDs</span>
+        <button onclick="clearZone()" title="Clear zone">✕</button>
       </div>
-      <div id="swatches" class="swatches"></div>
       <div class="row" style="margin-top:8px">
-        <button onclick="addColor()">+ Color</button>
-        <button onclick="removeColor()">− Color</button>
+        <button onclick="setAllCounts()">Same LEDs for all</button>
+        <button onclick="clearAllZones()">Clear all</button>
       </div>
       <label>Animation</label>
       <select id="customMode"><option value="0">Static</option><option value="1">Chase forward</option><option value="2">Chase backward</option><option value="3">Chase middle → out</option><option value="4">Chase out → middle</option><option value="5">Stars (twinkle)</option><option value="6">Breath</option><option value="7">Comet forward</option><option value="8">Comet backward</option><option value="9">Comet middle → out</option><option value="10">Comet out → middle</option><option value="11">Wave forward</option><option value="12">Wave backward</option><option value="13">Wave middle → out</option><option value="14">Wave out → middle</option><option value="15">Strobe</option><option value="16">Fade</option></select>
-      <label>LEDs per color: <span id="lpcV">3</span></label>
-      <input id="lpc" type="range" min="1" max="30" value="3" oninput="lpcV.textContent=this.value">
       <label>Brightness: <span id="briV">200</span></label>
       <input id="bri" type="range" min="1" max="255" value="200" oninput="briV.textContent=this.value">
       <label>Speed: <span id="spdV">100</span></label>
       <input id="spd" type="range" min="0" max="255" value="100" oninput="spdV.textContent=this.value">
-      <div style="margin-top:12px"><button class="primary" style="width:100%" onclick="applyCustom()">Show on lights</button></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" onclick="applyCustom()">Show on lights</button>
+        <button onclick="savePattern()">💾 Save</button>
+      </div>
+      <h3 style="margin:18px 0 8px; font-size:.95rem; color:var(--muted)">My patterns <span id="patternName" style="color:var(--text)"></span></h3>
+      <div id="myPatterns"></div>
     </section>
 
     <section class="card">
@@ -169,7 +194,7 @@
     </section>
 
     <section class="card">
-      <h2>Saved patterns</h2>
+      <h2>Patterns on this controller</h2>
       <div id="effects" class="effects"><p style="color:var(--muted)">Loading…</p></div>
     </section>
   </div>
@@ -178,7 +203,6 @@
 <script src="shared.js"></script>
 <script>
 let token = localStorage.getItem('tl_token');
-let colors = ['#ff0000', '#00ff00'];
 
 function $(id) { return document.getElementById(id); }
 function show(id, on = true) { $(id).classList.toggle('hidden', !on); }
@@ -227,7 +251,8 @@ async function start() {
   const s = await api('GET', '/api/status');
   if (!s.configured) return show('notConfigured');
   show('app');
-  renderSwatches();
+  renderBuilder();
+  loadPatterns();
   renderThemes();
   setThemeStill(themeStill);
   try {
@@ -287,9 +312,7 @@ async function doIt(label, pathSuffix, body) {
 function setSwitch(state) { doIt('Lights ' + state, 'switch', { state }); }
 function runEffect(id) { doIt('Pattern started', `effects/${id}/run`); }
 function applyCustom() {
-  doIt('Colors applied', 'custom', {
-    colors, mode: +$('customMode').value, ledsPerColor: +$('lpc').value, brightness: +$('bri').value, speed: +$('spd').value,
-  });
+  doIt('Pattern shown', 'custom', currentPatternBody());
 }
 function applyBuiltin() {
   doIt('Animation ' + $('bMode').value, 'builtin', {
@@ -298,22 +321,146 @@ function applyBuiltin() {
 }
 function bStep(n) { $('bMode').value = Math.max(0, Math.min(179, +$('bMode').value + n)); applyBuiltin(); }
 
-function renderSwatches() {
-  $('swatches').innerHTML = colors.map((c, i) =>
-    `<input type="color" value="${c}" oninput="colors[${i}]=this.value">`).join('');
+// ─── Pattern Builder ──────────────────────────────────────────────────────────
+// Up to 30 zones, each { color, count }. count 0 = empty (skipped). Trimlight repeats the pattern along the strip.
+const PALETTE = [
+  ['R', '#ff0000'], ['G', '#00ff00'], ['B', '#0000ff'], ['Y', '#ffff00'], ['PU', '#8000ff'], ['O', '#ff4000'], ['W', '#ffffff'],
+  ['WW', '#ffb060'], ['PI', '#ff0080'], ['C', '#00ffff'], ['BK', '#000000'],
+];
+const ZONES = 30;
+let zones = Array.from({ length: ZONES }, () => ({ color: '#000000', count: 0 }));
+zones[0] = { color: '#ff0000', count: 3 }; zones[1] = { color: '#00ff00', count: 3 };
+let selZone = 2, lastCount = 3, editingPatternId = null, editingPatternName = '';
+let customColors = JSON.parse(localStorage.getItem('tl_custom_colors') || '[]');
+let myPatterns = [];
+
+const textOn = hex => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150 ? '#000' : '#fff'; };
+const usedZones = () => zones.filter(z => z.count > 0);
+
+function currentPatternBody() {
+  return { zones: usedZones(), mode: +$('customMode').value, brightness: +$('bri').value, speed: +$('spd').value };
 }
-function addColor() { if (colors.length < 30) { colors.push('#ffffff'); renderSwatches(); } }
-function removeColor() { if (colors.length > 1) { colors.pop(); renderSwatches(); } }
-// opts (optional): { mode, speed, brightness, ledsPerColor }. Updates the sliders so a theme can be tweaked.
+
+function renderPalette() {
+  const all = [...PALETTE, ...customColors.map(c => ['', c])];
+  $('palette').innerHTML = all.map(([label, c]) =>
+    `<button class="dot" style="background:${c};color:${textOn(c)}" onclick="paint('${c}')" title="${label || c}">${label === 'BK' ? 'OFF' : label}</button>`).join('') +
+    `<button class="dot add" onclick="$('customColor').click()" title="Add a custom color">+</button>`;
+}
+
+// Zones are created once and then updated in place, so a tap is never lost to a redraw.
+function renderBuilder(fromInput = false) {
+  if (!$('palette').children.length) renderPalette();
+  if ($('zones').children.length !== ZONES) {
+    $('zones').innerHTML = zones.map((_, i) => `<button class="dot" onclick="selectZone(${i})"></button>`).join('');
+  }
+  [...$('zones').children].forEach((el, i) => {
+    const z = zones[i];
+    el.style.background = z.color; el.style.color = textOn(z.color);
+    el.textContent = z.count || '';
+    el.classList.toggle('empty', !z.count);
+    el.classList.toggle('sel', i === selZone);
+  });
+  $('zoneLabel').textContent = `Zone ${selZone + 1}`;
+  if (!fromInput) $('zoneCountInput').value = zones[selZone].count;
+  // House preview: the used zones repeated to fill the strip
+  const seq = usedZones().flatMap(u => Array(Math.min(u.count, 20)).fill(u.color));
+  $('housePreview').innerHTML = seq.length ? Array.from({ length: 90 }, (_, i) => `<span style="background:${seq[i % seq.length]}"></span>`).join('') : '';
+  $('patternName').textContent = editingPatternName ? `· editing "${editingPatternName}"` : '';
+}
+
+function selectZone(i) { selZone = i; renderBuilder(); }
+function paint(color) {
+  const z = zones[selZone];
+  zones[selZone] = { color, count: z.count || lastCount };
+  selZone = Math.min(selZone + 1, ZONES - 1);   // move on so you can tap colors in a row
+  renderBuilder();
+}
+function setZoneCount(v, fromInput = false) {
+  if (fromInput && v === '') return;   // still typing
+  const n = Math.max(0, Math.min(60, Math.round(+v) || 0));
+  zones[selZone].count = n;
+  if (n) lastCount = n;
+  renderBuilder(fromInput);
+}
+function zoneCount(d) { setZoneCount(zones[selZone].count + d); }
+function clearZone() { zones[selZone] = { color: '#000000', count: 0 }; renderBuilder(); }
+function clearAllZones() {
+  if (!confirm('Clear all 30 zones?')) return;
+  zones = zones.map(() => ({ color: '#000000', count: 0 })); selZone = 0; editingPatternId = null; editingPatternName = ''; renderBuilder();
+}
+function setAllCounts() {
+  const n = prompt('How many LEDs for every zone?', lastCount);
+  if (n === null) return;
+  const v = Math.max(1, Math.min(60, Math.round(+n) || 1));
+  lastCount = v; zones = zones.map(z => z.count ? { ...z, count: v } : z); renderBuilder();
+}
+function addCustomColor(c) {
+  if (!customColors.includes(c)) { customColors = [...customColors, c].slice(-14); localStorage.setItem('tl_custom_colors', JSON.stringify(customColors)); renderPalette(); }
+  paint(c);
+}
+
+function setSliders(p) {
+  $('customMode').value = p.mode ?? 0;
+  if (p.brightness !== undefined) { $('bri').value = p.brightness; $('briV').textContent = p.brightness; }
+  if (p.speed !== undefined) { $('spd').value = p.speed; $('spdV').textContent = p.speed; }
+}
+function loadZones(list) {
+  zones = Array.from({ length: ZONES }, (_, i) => list[i] ? { color: list[i].color, count: list[i].count } : { color: '#000000', count: 0 });
+  selZone = Math.min(list.length, ZONES - 1);
+}
+
+// Themes load into the builder (so they can be tweaked), then show on the lights.
+// opts (optional): { mode, speed, brightness, ledsPerColor }
 function preset(list, opts = {}) {
-  colors = [...list];
-  renderSwatches();
-  const set = (id, labelId, v) => { if (v !== undefined) { $(id).value = v; if (labelId) $(labelId).textContent = v; } };
-  set('customMode', null, opts.mode ?? 0);
-  set('lpc', 'lpcV', opts.ledsPerColor);
-  set('bri', 'briV', opts.brightness);
-  set('spd', 'spdV', opts.speed);
+  loadZones(list.map(color => ({ color, count: opts.ledsPerColor || 3 })));
+  editingPatternId = null; editingPatternName = '';
+  setSliders({ mode: opts.mode ?? 0, brightness: opts.brightness, speed: opts.speed });
+  renderBuilder();
   applyCustom();
+}
+
+// ─── My patterns (saved on the server) ────────────────────────────────────────
+async function loadPatterns() {
+  try { myPatterns = (await api('GET', '/api/patterns')).patterns; renderPatterns(); } catch (e) { $('myPatterns').textContent = e.message; }
+}
+function renderPatterns() {
+  $('myPatterns').innerHTML = myPatterns.length ? myPatterns.map(p =>
+    `<div class="pat"><div class="stripe">${p.zones.map(z => `<span style="background:${z.color};flex:${Math.max(1, Math.min(z.count, 10))}"></span>`).join('')}</div>
+      <b>${esc(p.name)}</b>
+      <button onclick="showPattern('${p.id}')">Show</button>
+      <button onclick="editPattern('${p.id}')">Edit</button>
+      <button onclick="deletePattern('${p.id}')" title="Delete">🗑</button></div>`).join('')
+    : '<p class="hint">Nothing saved yet. Build a pattern above and tap 💾 Save.</p>';
+}
+async function putPatterns(list) {
+  await api('POST', '/api/patterns', { patterns: list });
+  myPatterns = list; renderPatterns();
+}
+async function savePattern() {
+  if (!usedZones().length) return alert('Paint at least one zone first.');
+  const name = prompt('Name this pattern', editingPatternName || '');
+  if (!name) return;
+  const overwrite = editingPatternId && name === editingPatternName;
+  const p = { id: overwrite ? editingPatternId : Math.random().toString(36).slice(2, 10), name, ...currentPatternBody() };
+  const list = overwrite ? myPatterns.map(x => x.id === p.id ? p : x) : [...myPatterns, p];
+  try { await putPatterns(list); editingPatternId = p.id; editingPatternName = name; renderBuilder(); msg(`Saved "${name}" ✓`); }
+  catch (e) { msg(e.message, false); }
+}
+function editPattern(id) {
+  const p = myPatterns.find(x => x.id === id); if (!p) return;
+  loadZones(p.zones); setSliders(p); editingPatternId = p.id; editingPatternName = p.name; renderBuilder();
+  $('zones').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function showPattern(id) {
+  const p = myPatterns.find(x => x.id === id); if (!p) return;
+  doIt(`"${p.name}" shown`, 'custom', p);
+}
+async function deletePattern(id) {
+  const p = myPatterns.find(x => x.id === id);
+  if (!p || !confirm(`Delete "${p.name}"? Timers using it will stop working.`)) return;
+  try { await putPatterns(myPatterns.filter(x => x.id !== id)); if (editingPatternId === id) { editingPatternId = null; editingPatternName = ''; renderBuilder(); } }
+  catch (e) { msg(e.message, false); }
 }
 
 // Remember the last holiday tab; default to Thanksgiving in November, Christmas otherwise.
@@ -366,7 +513,10 @@ function describeTimer(t) {
   const offTxt = off === 0 ? 'At' : `${abs >= 60 ? (abs / 60) + ' hr' : abs + ' min'} ${off < 0 ? 'before' : 'after'}`;
   const when = t.when.type === 'time' ? to12h(t.when.time) : `${offTxt} ${t.when.type}`;
   const days = !t.days.length || t.days.length === 7 ? 'Every day' : t.days.map(d => DAY_NAMES[d]).join(', ');
-  const what = t.action.type === 'theme' ? `${t.action.theme}${t.action.still ? ' (still)' : ''}` : t.action.type === 'on' ? 'Turn on' : 'Turn off';
+  const patName = t.action.type === 'pattern' && ((myPatterns.find(p => p.id === t.action.patternId) || {}).name || 'Deleted pattern');
+  const what = t.action.type === 'theme' ? `${t.action.theme}${t.action.still ? ' (still)' : ''}`
+    : t.action.type === 'pattern' ? `💾 ${patName}${t.action.still ? ' (still)' : ''}`
+    : t.action.type === 'on' ? 'Turn on' : 'Turn off';
   return { when, days, what };
 }
 
@@ -408,7 +558,9 @@ function fillTimerSelects() {
   $('tTarget').innerHTML = $('device').innerHTML;
   $('tAction').innerHTML = '<option value="on">Turn on</option><option value="off">Turn off</option>' +
     HOLIDAYS.map(h => `<optgroup label="${esc(h.label)}">${h.themes.map(t =>
-      `<option value="theme|${h.id}|${esc(t.name)}">${esc(t.name)}</option>`).join('')}</optgroup>`).join('');
+      `<option value="theme|${h.id}|${esc(t.name)}">${esc(t.name)}</option>`).join('')}</optgroup>`).join('') +
+    (myPatterns.length ? `<optgroup label="💾 My patterns">${myPatterns.map(p =>
+      `<option value="pattern|${p.id}">${esc(p.name)}</option>`).join('')}</optgroup>` : '');
 }
 
 function renderFormDays() {
@@ -421,7 +573,7 @@ function setFormStill(still) { formStill = still; $('tStillMove').classList.togg
 function syncTimerForm() {
   const sun = $('tWhenType').value !== 'time';
   show('tTimeWrap', !sun); show('tOffsetWrap', sun);
-  show('tStillWrap', $('tAction').value.startsWith('theme|'));
+  show('tStillWrap', /^(theme|pattern)\|/.test($('tAction').value));
 }
 
 function editTimer(id) {
@@ -434,7 +586,8 @@ function editTimer(id) {
   $('tOffset').value = String(t ? t.when.offset : 0);
   formDays = t ? [...t.days] : [];
   $('tTarget').value = t ? t.target : (selected() || 'group:all');
-  $('tAction').value = t ? (t.action.type === 'theme' ? `theme|${t.action.holiday}|${t.action.theme}` : t.action.type) : 'on';
+  $('tAction').value = t ? (t.action.type === 'theme' ? `theme|${t.action.holiday}|${t.action.theme}`
+    : t.action.type === 'pattern' ? `pattern|${t.action.patternId}` : t.action.type) : 'on';
   setFormStill(t ? !!t.action.still : false);
   show('tDelete', !!t);
   renderFormDays(); syncTimerForm();
@@ -443,7 +596,7 @@ function editTimer(id) {
 }
 
 async function saveTimer() {
-  const [type, holiday, theme] = $('tAction').value.split('|');
+  const [type, holiday, theme] = $('tAction').value.split('|');   // for patterns, holiday holds the pattern id
   const whenType = $('tWhenType').value;
   const t = {
     id: editingId || uid(),
@@ -452,7 +605,8 @@ async function saveTimer() {
     when: { type: whenType, time: $('tTime').value || '17:00', offset: +$('tOffset').value },
     days: formDays,
     target: $('tTarget').value,
-    action: type === 'theme' ? { type, holiday, theme, still: formStill } : { type },
+    action: type === 'theme' ? { type, holiday, theme, still: formStill }
+      : type === 'pattern' ? { type, patternId: holiday, still: formStill } : { type },
   };
   timerState.timers = editingId ? timerState.timers.map(x => x.id === editingId ? t : x) : [...timerState.timers, t];
   try { await persistTimers(); show('timerForm', false); msg('Timer saved ✓'); } catch (e) { msg(e.message, false); }
