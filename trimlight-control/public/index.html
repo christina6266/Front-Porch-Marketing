@@ -30,6 +30,18 @@
   .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
   .themes .stripe span { flex:1; }
   .themes small { display:block; color:var(--muted); font-size:.75rem; margin-top:2px; }
+  .timer { display:flex; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #334155; }
+  .timer:first-child { border-top:0; }
+  .timer .info { flex:1; font-size:.9rem; }
+  .timer .info b { display:block; font-size:1rem; }
+  .timer .info small { color:var(--muted); }
+  .timer.off .info { opacity:.45; }
+  .timer button { padding:8px 10px; font-size:.85rem; }
+  .days { display:flex; gap:4px; }
+  .days button { flex:1; padding:8px 0; font-size:.8rem; }
+  .days button.on { background:var(--accent); }
+  .warn { background:#422006; color:#fcd34d; border-radius:10px; padding:10px; font-size:.85rem; margin-bottom:10px; }
+  input[type=text], input[type=time] { width:100%; padding:10px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; }
   #msg { min-height:1.2em; font-size:.9rem; margin-top:8px; }
   #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
   .hidden { display:none; }
@@ -71,6 +83,52 @@
         <button id="tStill" onclick="setThemeStill(true)">● Still</button>
       </div>
       <div id="themes" class="themes"></div>
+    </section>
+
+    <section class="card">
+      <h2>⏰ Timers</h2>
+      <div id="timerWarn" class="warn hidden">Timers are saved on the server but will be erased the next time the app is redeployed. Add a Railway Volume to keep them (see README).</div>
+      <div id="timerList"></div>
+      <p id="sunInfo" style="color:var(--muted); font-size:.85rem"></p>
+      <div class="row">
+        <button class="primary" onclick="editTimer()">+ Add timer</button>
+        <button onclick="useMyLocation()">📍 Set location for sunset</button>
+      </div>
+
+      <div id="timerForm" class="hidden" style="margin-top:14px; border-top:1px solid #334155; padding-top:10px">
+        <label>Name (optional)</label>
+        <input id="tName" type="text" placeholder="e.g. Evening Christmas">
+        <label>When</label>
+        <select id="tWhenType" onchange="syncTimerForm()">
+          <option value="time">At a clock time</option>
+          <option value="sunset">Sunset</option>
+          <option value="sunrise">Sunrise</option>
+        </select>
+        <div id="tTimeWrap"><label>Time</label><input id="tTime" type="time" value="17:00"></div>
+        <div id="tOffsetWrap" class="hidden"><label>Offset</label>
+          <select id="tOffset">
+            <option value="-60">1 hour before</option><option value="-30">30 min before</option><option value="-15">15 min before</option>
+            <option value="0" selected>Exactly</option>
+            <option value="15">15 min after</option><option value="30">30 min after</option><option value="60">1 hour after</option>
+            <option value="90">1½ hours after</option><option value="120">2 hours after</option>
+          </select>
+        </div>
+        <label>Days (none selected = every day)</label>
+        <div id="tDays" class="days"></div>
+        <label>Lights</label>
+        <select id="tTarget"></select>
+        <label>Do this</label>
+        <select id="tAction" onchange="syncTimerForm()"></select>
+        <div id="tStillWrap" class="toggle row hidden" style="margin-top:8px">
+          <button id="tStillMove" onclick="setFormStill(false)">✨ Moving</button>
+          <button id="tStillStill" onclick="setFormStill(true)">● Still</button>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary" onclick="saveTimer()">Save timer</button>
+          <button onclick="show('timerForm', false)">Cancel</button>
+          <button id="tDelete" onclick="deleteTimer()" style="color:var(--bad)">Delete</button>
+        </div>
+      </div>
     </section>
 
     <section class="card">
@@ -117,6 +175,7 @@
   </div>
 </main>
 
+<script src="shared.js"></script>
 <script>
 let token = localStorage.getItem('tl_token');
 let colors = ['#ff0000', '#00ff00'];
@@ -147,12 +206,7 @@ async function login() {
   token = data.token; localStorage.setItem('tl_token', token); start();
 }
 
-// Groups appear at the top of the Controller list. Members are matched by
-// controller name (case-insensitive); offline controllers are skipped.
-const GROUPS = [
-  { id: 'all', label: '★ All lights', names: null },
-  { id: 'backyard', label: '★ Backyard (Back, Pergola, Landscape)', names: ['Trimlight Back', 'Pergola', 'Trimlight Landscape'] },
-];
+const { GROUPS, HOLIDAYS } = TL;
 
 let devices = [];
 
@@ -185,6 +239,7 @@ async function start() {
       `<option value="${esc(d.deviceId)}">${esc(d.name || d.deviceId)}${isOnline(d) ? '' : ' (offline)'}</option>`).join('');
     $('device').innerHTML = (groupOpts + deviceOpts) || '<option value="">No controllers found</option>';
     if (devices.length) loadDevice();
+    loadTimers();
   } catch (e) { msg(e.message, false); }
 }
 
@@ -261,44 +316,6 @@ function preset(list, opts = {}) {
   applyCustom();
 }
 
-// Mode numbers match the Animation list:
-//  0 Static · 1 Chase fwd · 2 Chase back · 3 Chase mid→out · 5 Stars · 6 Breath · 7 Comet fwd · 8 Comet back
-//  9 Comet mid→out · 11 Wave fwd · 12 Wave back · 13 Wave mid→out · 16 Fade
-const T = (name, note, colors, mode, ledsPerColor, brightness, speed) => ({ name, note, colors, mode, ledsPerColor, brightness, speed });
-
-const HOLIDAYS = [
-  { id: 'christmas', label: '🎄 Christmas', themes: [
-    T('Classic Christmas', 'Red & green chasing', ['#ff0000', '#00c800'], 1, 4, 220, 40),
-    T('Candy Cane', 'Red & white stripes', ['#ff0000', '#ffffff'], 1, 4, 220, 60),
-    T('Peppermint Twist', 'Red, white & pink swirl', ['#ff0000', '#ffffff', '#ff4f8b', '#ffffff'], 13, 3, 220, 90),
-    T('Santa\'s Sleigh', 'Red & gold racing comets', ['#ff0000', '#ffd27f', '#ffb300'], 7, 4, 240, 170),
-    T('Rudolph', 'One red nose leading the way', ['#ff0000', '#ffd8a0', '#ffd8a0', '#ffd8a0', '#ffd8a0'], 7, 3, 230, 120),
-    T('Winter Wonderland', 'Icy blue & white twinkle', ['#ffffff', '#7fd4ff', '#2a7fff', '#d6f2ff'], 5, 2, 210, 80),
-    T('Let It Snow', 'Snow drifting down', ['#ffffff', '#cfe9ff', '#ffffff', '#5aa9ff'], 8, 3, 200, 60),
-    T('Christmas Eve', 'Soft twinkling warm white', ['#ffd27f', '#ffb347', '#fff1d6'], 5, 2, 170, 60),
-    T('Silver & Gold', 'Elegant slow fade', ['#ffc400', '#fff1d6', '#ffffff', '#ffb000'], 16, 6, 210, 35),
-    T('Retro Bulbs', 'Old-school multicolor C9 bulbs', ['#ff0000', '#00c800', '#0040ff', '#ff8c00', '#ffd400'], 0, 3, 230, 0),
-    T('Holly Jolly', 'Green, red & gold breathing', ['#00a000', '#ff0000', '#ffb300'], 6, 5, 220, 55),
-    T('Gingerbread House', 'Spice, icing & candy', ['#b84a00', '#ffffff', '#ff0000', '#b84a00', '#ffffff', '#00c800'], 0, 3, 220, 0),
-    T('The Grinch', 'Grinch green with a red heart', ['#5aff00', '#5aff00', '#5aff00', '#ff0000'], 6, 4, 230, 70),
-    T('Nutcracker', 'Red, gold & royal blue march', ['#ff0000', '#ffb300', '#1a3cff'], 11, 4, 230, 90),
-    T('Blue Christmas', 'Deep blue & white glow', ['#0030ff', '#ffffff'], 6, 5, 210, 45),
-    T('Elf Party', 'Fast & fun red, green, white, yellow', ['#ff0000', '#00c800', '#ffffff', '#ffd400'], 2, 3, 240, 200),
-    T('Northern Lights', 'Teal, green & purple waves', ['#00ffa0', '#00b4ff', '#7a00ff', '#00ff40'], 11, 8, 220, 50),
-    T('Midnight Mass', 'Gold & warm white from the center', ['#ffb300', '#fff1d6', '#ffd27f'], 9, 4, 220, 70),
-  ]},
-  { id: 'thanksgiving', label: '🦃 Thanksgiving', themes: [
-    T('Harvest Glow', 'Warm amber & gold, steady', ['#ff6a00', '#ffb000', '#ff8c00'], 0, 5, 190, 0),
-    T('Autumn Leaves', 'Red, orange & gold drifting', ['#c81e00', '#ff5a00', '#ffb300', '#ff7a00'], 1, 4, 210, 35),
-    T('Pumpkin Pie', 'Pumpkin orange with cream', ['#ff5000', '#ff5000', '#ffd9a0'], 0, 3, 200, 0),
-    T('Cranberry & Gold', 'Slow breathing glow', ['#b0002a', '#ffb300'], 6, 6, 220, 50),
-    T('Candlelight Dinner', 'Soft flickering warm white', ['#ffb347', '#ff8c1a', '#ffd27f'], 5, 2, 140, 70),
-    T('Turkey Trot', 'Festive moving wave', ['#8b2500', '#ff6a00', '#ffc400', '#c81e00'], 11, 5, 230, 120),
-    T('Golden Hour', 'Gold fading to sunset', ['#ffc400', '#ff7a00', '#ff3c00'], 16, 8, 200, 40),
-    T('Gratitude', 'Gold comets from the center', ['#ffd27f', '#ff9a00', '#ffffff'], 9, 4, 220, 90),
-  ]},
-];
-
 // Remember the last holiday tab; default to Thanksgiving in November, Christmas otherwise.
 let holiday = localStorage.getItem('tl_holiday') || (new Date().getMonth() === 10 ? 'thanksgiving' : 'christmas');
 const currentThemes = () => (HOLIDAYS.find(h => h.id === holiday) || HOLIDAYS[0]).themes;
@@ -327,6 +344,145 @@ function setThemeStill(still) {
 function applyTheme(i) {
   const t = currentThemes()[i];
   preset(t.colors, themeStill ? { ...t, mode: 0 } : t);
+}
+
+// ─── Timers ───────────────────────────────────────────────────────────────────
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let timerState = { timers: [], location: null };
+let editingId = null, formDays = [], formStill = false;
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const to12h = hhmm => { const [h, m] = hhmm.split(':').map(Number); return `${(h % 12) || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+function targetLabel(target) {
+  const g = GROUPS.find(x => 'group:' + x.id === target);
+  if (g) return g.label;
+  const d = devices.find(x => x.deviceId === target);
+  return d ? (d.name || d.deviceId) : 'Unknown controller';
+}
+
+function describeTimer(t) {
+  const off = t.when.offset, abs = Math.abs(off);
+  const offTxt = off === 0 ? 'At' : `${abs >= 60 ? (abs / 60) + ' hr' : abs + ' min'} ${off < 0 ? 'before' : 'after'}`;
+  const when = t.when.type === 'time' ? to12h(t.when.time) : `${offTxt} ${t.when.type}`;
+  const days = !t.days.length || t.days.length === 7 ? 'Every day' : t.days.map(d => DAY_NAMES[d]).join(', ');
+  const what = t.action.type === 'theme' ? `${t.action.theme}${t.action.still ? ' (still)' : ''}` : t.action.type === 'on' ? 'Turn on' : 'Turn off';
+  return { when, days, what };
+}
+
+async function loadTimers() {
+  try {
+    timerState = await api('GET', '/api/timers');
+    show('timerWarn', !timerState.persistent);
+    renderTimers();
+  } catch (e) { $('timerList').innerHTML = `<p style="color:var(--bad)">${esc(e.message)}</p>`; }
+}
+
+function renderTimers() {
+  const sorted = [...timerState.timers];
+  $('timerList').innerHTML = sorted.length ? sorted.map(t => {
+    const d = describeTimer(t);
+    return `<div class="timer ${t.enabled ? '' : 'off'}">
+      <div class="info"><b>${esc(d.when)} → ${esc(d.what)}</b><small>${esc(t.name ? t.name + ' · ' : '')}${esc(d.days)} · ${esc(targetLabel(t.target))}</small></div>
+      <button onclick="toggleTimer('${t.id}')">${t.enabled ? 'On' : 'Off'}</button>
+      <button onclick="editTimer('${t.id}')">Edit</button>
+      <button onclick="testTimer('${t.id}')" title="Run now">▶</button>
+    </div>`;
+  }).join('') : '<p style="color:var(--muted)">No timers yet. Add one to switch patterns automatically.</p>';
+  const sun = timerState.sun || {};
+  $('sunInfo').textContent = timerState.location
+    ? `Today: sunrise ${sun.sunrise ? to12h(sun.sunrise) : '—'}, sunset ${sun.sunset ? to12h(sun.sunset) : '—'} (${timerState.timezone})`
+    : 'Sunrise/sunset timers need your location. Tap "Set location for sunset" once.';
+}
+
+async function persistTimers(extra = {}) {
+  const res = await api('POST', '/api/timers', {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    location: timerState.location, timers: timerState.timers, ...extra,
+  });
+  await loadTimers();
+  return res;
+}
+
+function fillTimerSelects() {
+  $('tTarget').innerHTML = $('device').innerHTML;
+  $('tAction').innerHTML = '<option value="on">Turn on</option><option value="off">Turn off</option>' +
+    HOLIDAYS.map(h => `<optgroup label="${esc(h.label)}">${h.themes.map(t =>
+      `<option value="theme|${h.id}|${esc(t.name)}">${esc(t.name)}</option>`).join('')}</optgroup>`).join('');
+}
+
+function renderFormDays() {
+  $('tDays').innerHTML = DAY_NAMES.map((n, i) =>
+    `<button class="${formDays.includes(i) ? 'on' : ''}" onclick="toggleFormDay(${i})">${n}</button>`).join('');
+}
+function toggleFormDay(i) { formDays = formDays.includes(i) ? formDays.filter(d => d !== i) : [...formDays, i]; renderFormDays(); }
+function setFormStill(still) { formStill = still; $('tStillMove').classList.toggle('on', !still); $('tStillStill').classList.toggle('on', still); }
+
+function syncTimerForm() {
+  const sun = $('tWhenType').value !== 'time';
+  show('tTimeWrap', !sun); show('tOffsetWrap', sun);
+  show('tStillWrap', $('tAction').value.startsWith('theme|'));
+}
+
+function editTimer(id) {
+  fillTimerSelects();
+  const t = timerState.timers.find(x => x.id === id);
+  editingId = t ? t.id : null;
+  $('tName').value = t ? t.name : '';
+  $('tWhenType').value = t ? t.when.type : 'time';
+  $('tTime').value = t && t.when.type === 'time' ? t.when.time : '17:00';
+  $('tOffset').value = String(t ? t.when.offset : 0);
+  formDays = t ? [...t.days] : [];
+  $('tTarget').value = t ? t.target : (selected() || 'group:all');
+  $('tAction').value = t ? (t.action.type === 'theme' ? `theme|${t.action.holiday}|${t.action.theme}` : t.action.type) : 'on';
+  setFormStill(t ? !!t.action.still : false);
+  show('tDelete', !!t);
+  renderFormDays(); syncTimerForm();
+  show('timerForm');
+  $('timerForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function saveTimer() {
+  const [type, holiday, theme] = $('tAction').value.split('|');
+  const whenType = $('tWhenType').value;
+  if (whenType !== 'time' && !timerState.location) return alert('Set your location first (📍 button) so sunset/sunrise times can be worked out.');
+  const t = {
+    id: editingId || uid(),
+    enabled: editingId ? timerState.timers.find(x => x.id === editingId).enabled : true,
+    name: $('tName').value.trim(),
+    when: { type: whenType, time: $('tTime').value || '17:00', offset: +$('tOffset').value },
+    days: formDays,
+    target: $('tTarget').value,
+    action: type === 'theme' ? { type, holiday, theme, still: formStill } : { type },
+  };
+  timerState.timers = editingId ? timerState.timers.map(x => x.id === editingId ? t : x) : [...timerState.timers, t];
+  try { await persistTimers(); show('timerForm', false); msg('Timer saved ✓'); } catch (e) { msg(e.message, false); }
+}
+
+async function deleteTimer() {
+  if (!editingId || !confirm('Delete this timer?')) return;
+  timerState.timers = timerState.timers.filter(x => x.id !== editingId);
+  try { await persistTimers(); show('timerForm', false); msg('Timer deleted'); } catch (e) { msg(e.message, false); }
+}
+
+async function toggleTimer(id) {
+  timerState.timers = timerState.timers.map(x => x.id === id ? { ...x, enabled: !x.enabled } : x);
+  try { await persistTimers(); } catch (e) { msg(e.message, false); }
+}
+
+async function testTimer(id) {
+  try {
+    const r = await api('POST', `/api/timers/${id}/run`);
+    msg(r.failed.length ? `Ran on ${r.ran - r.failed.length} of ${r.ran}. ${r.failed.join('; ')}` : `Timer ran on ${r.ran} controller(s) ✓`, !r.failed.length);
+  } catch (e) { msg(e.message, false); }
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) return alert('This browser cannot share location.');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    timerState.location = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    try { await persistTimers(); msg('Location saved for sunset/sunrise ✓'); } catch (e) { msg(e.message, false); }
+  }, err => alert('Could not get location: ' + err.message), { enableHighAccuracy: false, timeout: 15000 });
 }
 
 start();
