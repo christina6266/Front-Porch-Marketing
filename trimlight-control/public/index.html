@@ -60,6 +60,22 @@
   .pat .stripe span { flex:1; }
   .pat b { flex:1; font-size:.9rem; font-weight:600; }
   .pat button { padding:8px 10px; font-size:.8rem; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  .modal.hidden { display:none; }
+  .sheet { background:var(--card); width:100%; max-width:560px; max-height:92vh; overflow:auto; border-radius:18px 18px 0 0; padding:16px; }
+  .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .sheet-head button { padding:6px 12px; }
+  .cp-preview { height:64px; border-radius:12px; border:2px solid #475569; display:flex; align-items:center; justify-content:center; font-weight:800; margin-bottom:10px; }
+  .cp-shades { display:grid; grid-template-columns:repeat(9, 1fr); gap:5px; margin-bottom:12px; }
+  .cp-shades button { aspect-ratio:1; border-radius:8px; border:1px solid #475569; padding:0; }
+  .cp-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .cp-l { width:16px; font-weight:800; text-align:center; }
+  .cp-row input[type=range] { flex:1; }
+  .cp-row input[type=number], .cp-row input[type=text] { width:84px; padding:8px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; text-align:center; }
+  .cp-row input[type=text] { flex:1; text-align:left; text-transform:lowercase; }
+  .cp-mine { display:flex; flex-wrap:wrap; gap:8px; }
+  .cp-mine div { position:relative; width:40px; height:40px; border-radius:50%; border:2px solid #475569; }
+  .cp-mine button { position:absolute; top:-8px; right:-8px; width:22px; height:22px; padding:0; border-radius:50%; font-size:.7rem; background:#ef4444; }
   #msg { min-height:1.2em; font-size:.9rem; margin-top:8px; }
   #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
   .hidden { display:none; }
@@ -153,7 +169,6 @@
       <h2>🎨 Pattern Builder</h2>
       <p class="hint">Tap a zone, then tap a color to paint it. The number in each zone is how many LEDs it lights. Empty zones are skipped and the pattern repeats around the whole house.</p>
       <div id="palette" class="palette"></div>
-      <input id="customColor" type="color" value="#ff8800" class="hidden" onchange="addCustomColor(this.value)">
       <div id="housePreview" class="house"></div>
       <div id="zones" class="zones"></div>
       <div class="zonebar">
@@ -197,6 +212,23 @@
       <h2>Patterns on this controller</h2>
       <div id="effects" class="effects"><p style="color:var(--muted)">Loading…</p></div>
     </section>
+  </div>
+
+  <div id="colorModal" class="modal hidden" onclick="if (event.target === this) closeColorPicker()">
+    <div class="sheet">
+      <div class="sheet-head"><b>Add a color</b><button onclick="closeColorPicker()">✕</button></div>
+      <div id="cpPreview" class="cp-preview"><span id="cpHexLabel"></span></div>
+      <div id="cpShades" class="cp-shades"></div>
+      <div class="cp-row"><span class="cp-l" style="color:#ff6b6b">R</span><input id="cpR" type="range" min="0" max="255" oninput="cpFromSliders()"><input id="cpRn" type="number" min="0" max="255" inputmode="numeric" oninput="cpFromNumbers()"></div>
+      <div class="cp-row"><span class="cp-l" style="color:#51cf66">G</span><input id="cpG" type="range" min="0" max="255" oninput="cpFromSliders()"><input id="cpGn" type="number" min="0" max="255" inputmode="numeric" oninput="cpFromNumbers()"></div>
+      <div class="cp-row"><span class="cp-l" style="color:#4dabf7">B</span><input id="cpB" type="range" min="0" max="255" oninput="cpFromSliders()"><input id="cpBn" type="number" min="0" max="255" inputmode="numeric" oninput="cpFromNumbers()"></div>
+      <div class="cp-row"><span class="cp-l">#</span><input id="cpHex" type="text" maxlength="7" placeholder="ff8800" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="cpFromHex()"></div>
+      <div id="cpMineWrap" class="hidden"><label>Your colors (tap ✕ to remove)</label><div id="cpMine" class="cp-mine"></div></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" onclick="cpAdd()">Add color</button>
+        <button onclick="closeColorPicker()">Cancel</button>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -345,7 +377,7 @@ function renderPalette() {
   const all = [...PALETTE, ...customColors.map(c => ['', c])];
   $('palette').innerHTML = all.map(([label, c]) =>
     `<button class="dot" style="background:${c};color:${textOn(c)}" onclick="paint('${c}')" title="${label || c}">${label === 'BK' ? 'OFF' : label}</button>`).join('') +
-    `<button class="dot add" onclick="$('customColor').click()" title="Add a custom color">+</button>`;
+    `<button class="dot add" onclick="openColorPicker()" title="Add a custom color">+</button>`;
 }
 
 // Zones are created once and then updated in place, so a tap is never lost to a redraw.
@@ -395,6 +427,61 @@ function setAllCounts() {
   const v = Math.max(1, Math.min(60, Math.round(+n) || 1));
   lastCount = v; zones = zones.map(z => z.count ? { ...z, count: v } : z); renderBuilder();
 }
+// ─── Color picker (pop-up) ────────────────────────────────────────────────────
+// Rows of shades from light to deep, plus warm whites and neutrals.
+const SHADES = [
+  '#ffcccc', '#ffd9b3', '#fff2b3', '#d9ffcc', '#ccffee', '#ccf2ff', '#ccd9ff', '#e6ccff', '#ffccf2',
+  '#ff6666', '#ffa64d', '#ffe14d', '#8cff66', '#4dffc3', '#4dd2ff', '#668cff', '#b366ff', '#ff66d9',
+  '#ff0000', '#ff8000', '#ffd000', '#40ff00', '#00ff9f', '#00bfff', '#0040ff', '#8000ff', '#ff00bf',
+  '#b30000', '#b35900', '#b39200', '#2db300', '#00b36f', '#0086b3', '#002db3', '#5900b3', '#b30086',
+  '#ffe4b5', '#ffd27f', '#ffb347', '#ff9a3c', '#ff7a1a', '#c86414', '#8b4513', '#ffffff', '#808080',
+];
+let cp = { r: 255, g: 136, b: 0 };
+const hex2 = n => n.toString(16).padStart(2, '0');
+const cpHex = () => '#' + hex2(cp.r) + hex2(cp.g) + hex2(cp.b);
+
+function cpRender(skip) {
+  const h = cpHex();
+  $('cpPreview').style.background = h;
+  $('cpHexLabel').textContent = h.toUpperCase(); $('cpHexLabel').style.color = textOn(h);
+  for (const k of ['r', 'g', 'b']) {
+    const K = k.toUpperCase();
+    if (skip !== 'sliders') $('cp' + K).value = cp[k];
+    if (skip !== 'numbers') $('cp' + K + 'n').value = cp[k];
+  }
+  if (skip !== 'hex') $('cpHex').value = h.slice(1);
+}
+function cpSet(hex) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  cp = { r: n >> 16, g: (n >> 8) & 255, b: n & 255 }; cpRender();
+}
+function cpFromSliders() { cp = { r: +$('cpR').value, g: +$('cpG').value, b: +$('cpB').value }; cpRender('sliders'); }
+function cpFromNumbers() {
+  const v = id => Math.max(0, Math.min(255, Math.round(+$(id).value) || 0));
+  cp = { r: v('cpRn'), g: v('cpGn'), b: v('cpBn') }; cpRender('numbers');
+}
+function cpFromHex() {
+  let h = $('cpHex').value.trim().replace('#', '');
+  if (/^[0-9a-f]{3}$/i.test(h)) h = h.split('').map(c => c + c).join('');
+  if (/^[0-9a-f]{6}$/i.test(h)) { const n = parseInt(h, 16); cp = { r: n >> 16, g: (n >> 8) & 255, b: n & 255 }; cpRender('hex'); }
+}
+function renderMyColors() {
+  show('cpMineWrap', customColors.length > 0);
+  $('cpMine').innerHTML = customColors.map((c, i) =>
+    `<div style="background:${c}" onclick="cpSet('${c}')"><button onclick="event.stopPropagation(); removeCustomColor(${i})">✕</button></div>`).join('');
+}
+function openColorPicker() {
+  $('cpShades').innerHTML = SHADES.map(c => `<button style="background:${c}" onclick="cpSet('${c}')" title="${c}"></button>`).join('');
+  renderMyColors(); cpRender(); show('colorModal');
+}
+function closeColorPicker() { show('colorModal', false); }
+function cpAdd() { closeColorPicker(); addCustomColor(cpHex()); }
+function removeCustomColor(i) {
+  customColors = customColors.filter((_, j) => j !== i);
+  localStorage.setItem('tl_custom_colors', JSON.stringify(customColors));
+  renderPalette(); renderMyColors();
+}
+
 function addCustomColor(c) {
   if (!customColors.includes(c)) { customColors = [...customColors, c].slice(-14); localStorage.setItem('tl_custom_colors', JSON.stringify(customColors)); renderPalette(); }
   paint(c);
