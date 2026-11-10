@@ -21,6 +21,15 @@ step through the 180 built-in animations; and run patterns saved on the controll
 
 3. Start it with `npm start` (or `node server.js`), then open the site and sign in with `APP_PASSWORD`.
 
+## Pattern Builder
+
+Works like Trimlight's own pattern screen: 30 zones, each with its own color and
+number of LEDs. Tap a zone, tap a color to paint it (it moves to the next zone),
+and set the LED count with − / +. Empty zones are skipped and the pattern repeats
+around the whole house. Pick an animation, brightness and speed, then **Show on
+lights** or **💾 Save** it to *My patterns*. Saved patterns can be used in timers.
+Themes load into the builder too, so any theme can be tweaked and saved.
+
 ## Timers
 
 The ⏰ Timers card schedules any number of actions: turn on, turn off, or show a

@@ -43,6 +43,17 @@ const HOLIDAYS = [
     T('Golden Hour', 'Gold fading to sunset', ['#ffc400', '#ff7a00', '#ff3c00'], 16, 8, 200, 40),
     T('Gratitude', 'Gold comets from the center', ['#ffd27f', '#ff9a00', '#ffffff'], 9, 4, 220, 90),
   ]},
+  { id: 'more', label: '🎉 More', themes: [
+    T('Warm White', 'Classic everyday white', ['#ffb060'], 0, 1, 200, 0),
+    T('Halloween', 'Orange & purple', ['#ff5000', '#7a00ff'], 0, 4, 220, 0),
+    T('Spooky', 'Orange, purple & green creeping', ['#ff5000', '#7a00ff', '#3cff00'], 1, 3, 220, 50),
+    T('USA', 'Red, white & blue', ['#ff0000', '#ffffff', '#0000ff'], 0, 4, 220, 0),
+    T('Fireworks', 'Red, white & blue bursts', ['#ff0000', '#ffffff', '#0000ff'], 9, 3, 240, 160),
+    T('St. Patrick\'s', 'Green & white', ['#00c000', '#ffffff'], 0, 4, 220, 0),
+    T('Valentine\'s', 'Pink, red & white', ['#ff2080', '#ff0000', '#ffffff'], 6, 3, 220, 60),
+    T('Easter', 'Soft pastels', ['#ff8cc8', '#a0e0ff', '#fff080', '#c0ff90', '#c8a0ff'], 0, 3, 200, 0),
+    T('New Year\'s Eve', 'Gold & silver sparkle', ['#ffc400', '#ffffff', '#fff1d6'], 5, 2, 240, 120),
+  ]},
 ];
 
 
