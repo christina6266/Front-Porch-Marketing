@@ -17,8 +17,25 @@ step through the 180 built-in animations; and run patterns saved on the controll
    | `TRIMLIGHT_CLIENT_ID` | Client ID from Trimlight |
    | `TRIMLIGHT_CLIENT_SECRET` | Client secret from Trimlight |
    | `APP_PASSWORD` | A password you choose for this page |
+   | `DATA_DIR` | Optional. Folder for saved timers, e.g. `/data` on a Railway volume |
 
 3. Start it with `npm start` (or `node server.js`), then open the site and sign in with `APP_PASSWORD`.
+
+## Timers
+
+The ⏰ Timers card schedules any number of actions: turn on, turn off, or show a
+theme (moving or still). Each runs at a clock time or relative to sunset/sunrise,
+on chosen days, for All lights, Backyard, or one controller. The server runs them,
+so your phone can be off.
+
+- Sunrise/sunset are worked out fresh every day for **Austin, TX** in **Central Time**
+  (daylight saving included), so sunset timers follow the real time all year.
+- Somewhere else? Set `HOME_LAT`, `HOME_LON`, `HOME_NAME` and `HOME_TIMEZONE`
+  (e.g. `America/Denver`), or tap **📍 Use this phone's location** on the page.
+- **Keep timers across redeploys (Railway):** open the service, choose **Attach volume**
+  (or right-click the service → Volume), mount it at `/data`, then add the variable
+  `DATA_DIR` = `/data`. Without a volume, timers are erased on each redeploy and the
+  page shows a warning.
 
 ## API
 

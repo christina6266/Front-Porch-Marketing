@@ -3,12 +3,16 @@
 //   TRIMLIGHT_CLIENT_ID, TRIMLIGHT_CLIENT_SECRET  (from https://trimlight.ledhue.com)
 //   APP_PASSWORD   password for this control page (required)
 //   PORT           (optional, default 3000)
+//   DATA_DIR       (optional) folder where timers are saved, default ./data.
+//                  On Railway, attach a Volume and set DATA_DIR to its mount path
+//                  (e.g. /data) so timers survive redeploys.
 
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { GROUPS, findTheme } = require('./public/shared.js');
 
 const TRIMLIGHT_BASE = process.env.TRIMLIGHT_BASE_URL || 'https://trimlight.ledhue.com/trimlight';
 const PORT = process.env.PORT || 3000;
@@ -102,6 +106,191 @@ const clamp = (v, lo, hi, dflt) => {
   return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : dflt;
 };
 
+function showCustom(deviceId, b) {
+  const colors = (Array.isArray(b.colors) && b.colors.length ? b.colors : ['#ffffff']).slice(0, 30);
+  const count = clamp(b.ledsPerColor, 1, 60, 1);
+  return trimlight('POST', '/v1/oauth/resources/device/effect/preview', {
+    deviceId,
+    payload: {
+      category: 1,
+      mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
+      brightness: clamp(b.brightness, 0, 255, 200),
+      pixels: colors.map((c, index) => ({ index, count, color: hexToInt(c), disable: false })),
+    },
+  });
+}
+
+const setSwitch = (deviceId, switchState) =>
+  trimlight('POST', '/v1/oauth/resources/device/update', { deviceId, payload: { switchState } });
+
+// ─── Timers ────────────────────────────────────────────────────────────────────
+// A timer: { id, enabled, name, when: { type: 'time'|'sunset'|'sunrise', time: 'HH:MM', offset: minutes },
+//            days: [0-6] (0 = Sunday; empty = every day), target: 'group:all' | 'group:backyard' | deviceId,
+//            action: { type: 'on'|'off'|'theme', holiday, theme, still } }
+
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_PERSISTENT = !!process.env.DATA_DIR;
+const TIMERS_FILE = path.join(DATA_DIR, 'timers.json');
+
+// Home location and time zone for sunrise/sunset. Defaults to Austin, TX (Central Time);
+// override with HOME_LAT / HOME_LON / HOME_NAME / HOME_TIMEZONE, or the page's 📍 button.
+const HOME_TIMEZONE = process.env.HOME_TIMEZONE || 'America/Chicago';
+const DEFAULT_LOCATION = {
+  lat: Number(process.env.HOME_LAT) || 30.267,
+  lon: Number(process.env.HOME_LON) || -97.743,
+  name: process.env.HOME_NAME || 'Austin, TX',
+};
+
+let timerData = { timezone: HOME_TIMEZONE, location: DEFAULT_LOCATION, timers: [], lastRuns: {} };
+try { timerData = { ...timerData, ...JSON.parse(fs.readFileSync(TIMERS_FILE, 'utf8')) }; } catch {}
+if (!timerData.location) timerData.location = DEFAULT_LOCATION;
+timerData.timezone = HOME_TIMEZONE;
+
+function writeTimerData() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = TIMERS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(timerData, null, 2));
+  fs.renameSync(tmp, TIMERS_FILE);
+}
+
+function cleanTimer(t) {
+  const type = ['time', 'sunset', 'sunrise'].includes(t?.when?.type) ? t.when.type : 'time';
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t?.when?.time) ? t.when.time : '17:00';
+  const actionType = ['on', 'off', 'theme'].includes(t?.action?.type) ? t.action.type : 'on';
+  if (actionType === 'theme' && !findTheme(t.action.holiday, t.action.theme)) throw new HttpError(400, `Unknown theme: ${t.action.theme}`);
+  return {
+    id: String(t.id || crypto.randomBytes(6).toString('hex')).slice(0, 40),
+    enabled: t.enabled !== false,
+    name: String(t.name || '').slice(0, 60),
+    when: { type, time, offset: clamp(t?.when?.offset, -240, 240, 0) },
+    days: [...new Set((Array.isArray(t.days) ? t.days : []).map(Number).filter(d => d >= 0 && d <= 6))].sort(),
+    target: String(t.target || 'group:all').slice(0, 80),
+    action: actionType === 'theme'
+      ? { type: 'theme', holiday: t.action.holiday, theme: t.action.theme, still: !!t.action.still }
+      : { type: actionType },
+  };
+}
+
+function saveTimerData(b) {
+  if (!Array.isArray(b.timers) || b.timers.length > 100) throw new HttpError(400, 'timers must be a list (max 100)');
+  let loc = timerData.location;
+  if (b.location === 'default') loc = DEFAULT_LOCATION;
+  else if (b.location && Number.isFinite(+b.location.lat) && Number.isFinite(+b.location.lon)) {
+    loc = { lat: +(+b.location.lat).toFixed(3), lon: +(+b.location.lon).toFixed(3), name: String(b.location.name || 'Custom location').slice(0, 60) };
+  }
+  timerData = {
+    timezone: HOME_TIMEZONE,
+    location: loc,
+    timers: b.timers.map(cleanTimer),
+    lastRuns: timerData.lastRuns,
+  };
+  writeTimerData();
+  return { ok: true, persistent: DATA_PERSISTENT, sun: sunPreview() };
+}
+
+// Local date/time parts in the saved time zone.
+function localParts(date = new Date(), tz = timerData.timezone) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+  }).formatToParts(date).map(p => [p.type, p.value]));
+  return {
+    y: +parts.year, m: +parts.month, d: +parts.day,
+    minutes: +parts.hour * 60 + +parts.minute,
+    weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday),
+    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
+  };
+}
+
+// Sunrise/sunset (NOAA approximation) as minutes after local midnight, or null (polar day/night).
+function sunMinutes(y, m, d, rising) {
+  const loc = timerData.location;
+  if (!loc) return null;
+  const rad = Math.PI / 180, deg = 180 / Math.PI;
+  const N = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 0)) / 86400000);
+  const lngHour = loc.lon / 15;
+  const t = N + ((rising ? 6 : 18) - lngHour) / 24;
+  const M = 0.9856 * t - 3.289;
+  const L = (M + 1.916 * Math.sin(M * rad) + 0.020 * Math.sin(2 * M * rad) + 282.634 + 360) % 360;
+  let RA = (Math.atan(0.91764 * Math.tan(L * rad)) * deg + 360) % 360;
+  RA = (RA + Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90) / 15;
+  const sinDec = 0.39782 * Math.sin(L * rad), cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (Math.cos(90.833 * rad) - sinDec * Math.sin(loc.lat * rad)) / (cosDec * Math.cos(loc.lat * rad));
+  if (cosH > 1 || cosH < -1) return null;
+  const H = (rising ? 360 - Math.acos(cosH) * deg : Math.acos(cosH) * deg) / 15;
+  const UT = ((H + RA - 0.06571 * t - 6.622 - lngHour) % 24 + 24) % 24;
+  // Convert UT on this date to local clock minutes; pick the instant that falls on the same local date.
+  for (const shift of [0, -1, 1]) {
+    const lp = localParts(new Date(Date.UTC(y, m - 1, d + shift) + UT * 3600000));
+    if (lp.y === y && lp.m === m && lp.d === d) return lp.minutes;
+  }
+  return null;
+}
+
+function timerMinute(t, lp) {
+  if (t.when.type === 'time') {
+    const [h, mm] = t.when.time.split(':').map(Number);
+    return h * 60 + mm;
+  }
+  const base = sunMinutes(lp.y, lp.m, lp.d, t.when.type === 'sunrise');
+  return base === null ? null : base + t.when.offset;
+}
+
+const fmt = mins => mins === null ? null : `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+function sunPreview() {
+  const lp = localParts();
+  const tm = localParts(new Date(Date.now() + 86400000));
+  return {
+    place: timerData.location && timerData.location.name, timezone: timerData.timezone,
+    sunrise: fmt(sunMinutes(lp.y, lp.m, lp.d, true)), sunset: fmt(sunMinutes(lp.y, lp.m, lp.d, false)),
+    tomorrowSunrise: fmt(sunMinutes(tm.y, tm.m, tm.d, true)), tomorrowSunset: fmt(sunMinutes(tm.y, tm.m, tm.d, false)),
+  };
+}
+
+async function targetDevices(target) {
+  const res = await trimlight('GET', '/v1/oauth/resources/devices', { page: 0 });
+  const devices = res.data || res.devices || (Array.isArray(res) ? res : []);
+  const online = devices.filter(d => d.connectivity !== 0);
+  if (!target.startsWith('group:')) return online.filter(d => d.deviceId === target);
+  const g = GROUPS.find(x => 'group:' + x.id === target);
+  if (!g) return [];
+  const wanted = g.names && g.names.map(n => n.toLowerCase());
+  return online.filter(d => !wanted || wanted.includes(String(d.name || '').toLowerCase()));
+}
+
+async function runTimer(t) {
+  const devices = await targetDevices(t.target);
+  const theme = t.action.type === 'theme' && findTheme(t.action.holiday, t.action.theme);
+  const results = await Promise.allSettled(devices.map(async d => {
+    if (t.action.type === 'off') return setSwitch(d.deviceId, 0);
+    await setSwitch(d.deviceId, 1);
+    if (theme) await showCustom(d.deviceId, t.action.still ? { ...theme, mode: 0 } : theme);
+  }));
+  const failed = results.map((r, i) => r.status === 'rejected' ? `${devices[i].name}: ${r.reason.message}` : null).filter(Boolean);
+  const summary = { ran: devices.length, failed };
+  console.log(`⏰ Timer "${t.name || t.id}" → ${devices.length} controller(s)${failed.length ? ', failed: ' + failed.join('; ') : ''}`);
+  return summary;
+}
+
+// Every 30s: run each enabled timer whose minute has arrived (once per day per timer).
+async function tick() {
+  if (!configured() || !timerData.timers.length) return;
+  const lp = localParts();
+  for (const t of timerData.timers) {
+    if (!t.enabled || (t.days.length && !t.days.includes(lp.weekday))) continue;
+    const at = timerMinute(t, lp);
+    // Run within a 5-minute window so a brief restart doesn't skip it.
+    if (at === null || lp.minutes < at || lp.minutes > at + 5) continue;
+    const key = `${t.id}@${lp.dateKey}`;
+    if (timerData.lastRuns[t.id] === key) continue;
+    timerData.lastRuns[t.id] = key;
+    try { writeTimerData(); } catch (e) { console.error('Could not save timers:', e.message); }
+    runTimer(t).catch(e => console.error(`⏰ Timer "${t.name || t.id}" failed:`, e.message));
+  }
+}
+setInterval(tick, 30000);
+setTimeout(tick, 5000);
+
 // ─── Routes ────────────────────────────────────────────────────────────────────
 
 const routes = [
@@ -135,18 +324,14 @@ const routes = [
     })],
 
   // Custom colors: { colors: ["#ff0000", ...], mode 0-16 (0 = static), speed, brightness, ledsPerColor }
-  ['POST', /^\/api\/devices\/([^/]+)\/custom$/, ([id], b) => {
-    const colors = (Array.isArray(b.colors) && b.colors.length ? b.colors : ['#ffffff']).slice(0, 30);
-    const count = clamp(b.ledsPerColor, 1, 60, 1);
-    return trimlight('POST', '/v1/oauth/resources/device/effect/preview', {
-      deviceId: id,
-      payload: {
-        category: 1,
-        mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
-        brightness: clamp(b.brightness, 0, 255, 200),
-        pixels: colors.map((c, index) => ({ index, count, color: hexToInt(c), disable: false })),
-      },
-    });
+  ['POST', /^\/api\/devices\/([^/]+)\/custom$/, ([id], b) => showCustom(id, b)],
+
+  ['GET', /^\/api\/timers$/, () => ({ ...timerData, lastRuns: undefined, persistent: DATA_PERSISTENT, sun: sunPreview() })],
+  ['POST', /^\/api\/timers$/, (_, b) => saveTimerData(b)],
+  ['POST', /^\/api\/timers\/([^/]+)\/run$/, async ([id]) => {
+    const t = timerData.timers.find(x => x.id === id);
+    if (!t) throw new HttpError(404, 'Timer not found');
+    return runTimer(t);
   }],
 ];
 
@@ -187,7 +372,8 @@ const server = http.createServer(async (req, res) => {
     if (!full.startsWith(path.join(__dirname, 'public'))) return send(res, 404, { error: 'Not found' });
     return fs.readFile(full, (err, data) => {
       if (err) return send(res, 404, { error: 'Not found' });
-      res.writeHead(200, { 'Content-Type': full.endsWith('.html') ? 'text/html; charset=utf-8' : 'application/octet-stream' });
+      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css' };
+      res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'application/octet-stream' });
       res.end(data);
     });
   }
