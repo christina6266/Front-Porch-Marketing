@@ -134,6 +134,26 @@ async function login() {
   token = data.token; localStorage.setItem('tl_token', token); start();
 }
 
+// Groups appear at the top of the Controller list. Members are matched by
+// controller name (case-insensitive); offline controllers are skipped.
+const GROUPS = [
+  { id: 'all', label: '★ All lights', names: null },
+  { id: 'backyard', label: '★ Backyard (Back, Pergola, Landscape)', names: ['Trimlight Back', 'Pergola', 'Trimlight Landscape'] },
+];
+
+let devices = [];
+
+function esc(t) {
+  return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const isOnline = d => d.connectivity !== 0;
+
+function groupMembers(group) {
+  const wanted = group.names && group.names.map(n => n.toLowerCase());
+  return devices.filter(d => isOnline(d) && (!wanted || wanted.includes(String(d.name || '').toLowerCase())));
+}
+
 async function start() {
   show('login', !token); show('app', false); show('notConfigured', false);
   if (!token) return;
@@ -143,48 +163,68 @@ async function start() {
   renderSwatches();
   try {
     const res = await api('GET', '/api/devices');
-    const list = res.data || res.devices || (Array.isArray(res) ? res : []);
-    $('device').innerHTML = list.map(d =>
-      `<option value="${d.deviceId}">${d.name || d.deviceId}${d.connectivity === 0 ? ' (offline)' : ''}</option>`).join('')
-      || '<option value="">No controllers found</option>';
-    if (list.length) loadDevice();
+    devices = res.data || res.devices || (Array.isArray(res) ? res : []);
+    const groupOpts = GROUPS.filter(g => groupMembers(g).length)
+      .map(g => `<option value="group:${g.id}">${esc(g.label)}</option>`).join('');
+    const deviceOpts = devices.map(d =>
+      `<option value="${esc(d.deviceId)}">${esc(d.name || d.deviceId)}${isOnline(d) ? '' : ' (offline)'}</option>`).join('');
+    $('device').innerHTML = (groupOpts + deviceOpts) || '<option value="">No controllers found</option>';
+    if (devices.length) loadDevice();
   } catch (e) { msg(e.message, false); }
 }
 
-const deviceId = () => $('device').value;
+const selected = () => $('device').value;
+const selectedGroup = () => selected().startsWith('group:') && GROUPS.find(g => 'group:' + g.id === selected());
+
+// The controllers the buttons act on: one controller, or every online member of a group.
+function targets() {
+  const g = selectedGroup();
+  if (g) return groupMembers(g);
+  return devices.filter(d => d.deviceId === selected());
+}
 
 async function loadDevice() {
-  if (!deviceId()) return;
+  if (!selected()) return;
+  const g = selectedGroup();
+  if (g) {
+    const names = groupMembers(g).map(d => d.name || d.deviceId);
+    $('effects').innerHTML = '<p style="color:var(--muted)">Pick a single controller to run its saved patterns.</p>';
+    return msg(`Controls ${names.length}: ${names.join(', ')}`);
+  }
   try {
-    const d = await api('GET', '/api/devices/' + encodeURIComponent(deviceId()));
+    const d = await api('GET', '/api/devices/' + encodeURIComponent(selected()));
     const effects = d.effects || [];
     $('effects').innerHTML = effects.length
-      ? effects.map(e => `<button onclick="runEffect(${e.id})">${e.name || 'Pattern ' + e.id}</button>`).join('')
+      ? effects.map(e => `<button onclick="runEffect(${Number(e.id)})">${esc(e.name || 'Pattern ' + e.id)}</button>`).join('')
       : '<p style="color:var(--muted)">No saved patterns on this controller.</p>';
     const states = ['Off', 'On', 'Schedule'];
     if (d.switchState !== undefined) msg('Currently: ' + (states[d.switchState] || d.switchState));
   } catch (e) { msg(e.message, false); }
 }
 
-async function doIt(label, fn) {
-  try { await fn(); msg(label + ' ✓'); } catch (e) { msg(e.message, false); }
+// Send the same command to every target controller at once and report the result.
+async function doIt(label, pathSuffix, body) {
+  const list = targets();
+  if (!list.length) return msg('No online controllers selected', false);
+  msg(label + '…');
+  const results = await Promise.allSettled(list.map(d =>
+    api('POST', `/api/devices/${encodeURIComponent(d.deviceId)}/${pathSuffix}`, body)));
+  const failed = results.map((r, i) => r.status === 'rejected' ? `${list[i].name || list[i].deviceId}: ${r.reason.message}` : null).filter(Boolean);
+  if (!failed.length) return msg(label + ' ✓' + (list.length > 1 ? ` (${list.length} controllers)` : ''));
+  msg(`${label}: ${list.length - failed.length} of ${list.length} worked. ${failed.join('; ')}`, false);
 }
 
-function setSwitch(state) {
-  doIt('Lights ' + state, () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/switch`, { state }));
-}
-function runEffect(id) {
-  doIt('Pattern started', () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/effects/${id}/run`));
-}
+function setSwitch(state) { doIt('Lights ' + state, 'switch', { state }); }
+function runEffect(id) { doIt('Pattern started', `effects/${id}/run`); }
 function applyCustom() {
-  doIt('Colors applied', () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/custom`, {
+  doIt('Colors applied', 'custom', {
     colors, mode: +$('customMode').value, ledsPerColor: +$('lpc').value, brightness: +$('bri').value, speed: +$('spd').value,
-  }));
+  });
 }
 function applyBuiltin() {
-  doIt('Animation ' + $('bMode').value, () => api('POST', `/api/devices/${encodeURIComponent(deviceId())}/builtin`, {
+  doIt('Animation ' + $('bMode').value, 'builtin', {
     mode: +$('bMode').value, brightness: +$('bri').value, speed: +$('spd').value,
-  }));
+  });
 }
 function bStep(n) { $('bMode').value = Math.max(0, Math.min(179, +$('bMode').value + n)); applyBuiltin(); }
 
