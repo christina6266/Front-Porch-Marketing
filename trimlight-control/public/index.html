@@ -24,6 +24,7 @@
   .swatches input[type=color] { width:44px; height:44px; border:0; padding:0; background:none; }
   .presets button { font-size:.85rem; padding:8px 10px; }
   .toggle button.on { background:var(--accent); }
+  #holidayTabs button { font-weight:600; }
   .themes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .themes button { text-align:left; padding:10px; }
   .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
@@ -63,7 +64,8 @@
     </section>
 
     <section class="card">
-      <h2>🦃 Thanksgiving</h2>
+      <h2>🎨 Themes</h2>
+      <div id="holidayTabs" class="toggle row" style="margin-bottom:8px"></div>
       <div class="toggle row" style="margin-bottom:10px">
         <button id="tMove" class="on" onclick="setThemeStill(false)">✨ Moving</button>
         <button id="tStill" onclick="setThemeStill(true)">● Still</button>
@@ -259,28 +261,58 @@ function preset(list, opts = {}) {
   applyCustom();
 }
 
-// Mode numbers match the Animation list: 0 Static, 1 Chase, 5 Stars, 6 Breath, 7 Comet, 11 Wave, 13 Wave middle→out, 16 Fade.
-const THEMES = [
-  { name: 'Harvest Glow', note: 'Warm amber & gold, steady',
-    colors: ['#ff6a00', '#ffb000', '#ff8c00'], mode: 0, ledsPerColor: 5, brightness: 190, speed: 0 },
-  { name: 'Autumn Leaves', note: 'Red, orange & gold drifting',
-    colors: ['#c81e00', '#ff5a00', '#ffb300', '#ff7a00'], mode: 1, ledsPerColor: 4, brightness: 210, speed: 35 },
-  { name: 'Pumpkin Pie', note: 'Pumpkin orange with cream',
-    colors: ['#ff5000', '#ff5000', '#ffd9a0'], mode: 0, ledsPerColor: 3, brightness: 200, speed: 0 },
-  { name: 'Cranberry & Gold', note: 'Slow breathing glow',
-    colors: ['#b0002a', '#ffb300'], mode: 6, ledsPerColor: 6, brightness: 220, speed: 50 },
-  { name: 'Candlelight Dinner', note: 'Soft flickering warm white',
-    colors: ['#ffb347', '#ff8c1a', '#ffd27f'], mode: 5, ledsPerColor: 2, brightness: 140, speed: 70 },
-  { name: 'Turkey Trot', note: 'Festive moving wave',
-    colors: ['#8b2500', '#ff6a00', '#ffc400', '#c81e00'], mode: 11, ledsPerColor: 5, brightness: 230, speed: 120 },
-  { name: 'Golden Hour', note: 'Gold fading to sunset',
-    colors: ['#ffc400', '#ff7a00', '#ff3c00'], mode: 16, ledsPerColor: 8, brightness: 200, speed: 40 },
-  { name: 'Gratitude', note: 'Gold comets from the center',
-    colors: ['#ffd27f', '#ff9a00', '#ffffff'], mode: 9, ledsPerColor: 4, brightness: 220, speed: 90 },
+// Mode numbers match the Animation list:
+//  0 Static · 1 Chase fwd · 2 Chase back · 3 Chase mid→out · 5 Stars · 6 Breath · 7 Comet fwd · 8 Comet back
+//  9 Comet mid→out · 11 Wave fwd · 12 Wave back · 13 Wave mid→out · 16 Fade
+const T = (name, note, colors, mode, ledsPerColor, brightness, speed) => ({ name, note, colors, mode, ledsPerColor, brightness, speed });
+
+const HOLIDAYS = [
+  { id: 'christmas', label: '🎄 Christmas', themes: [
+    T('Classic Christmas', 'Red & green chasing', ['#ff0000', '#00c800'], 1, 4, 220, 40),
+    T('Candy Cane', 'Red & white stripes', ['#ff0000', '#ffffff'], 1, 4, 220, 60),
+    T('Peppermint Twist', 'Red, white & pink swirl', ['#ff0000', '#ffffff', '#ff4f8b', '#ffffff'], 13, 3, 220, 90),
+    T('Santa\'s Sleigh', 'Red & gold racing comets', ['#ff0000', '#ffd27f', '#ffb300'], 7, 4, 240, 170),
+    T('Rudolph', 'One red nose leading the way', ['#ff0000', '#ffd8a0', '#ffd8a0', '#ffd8a0', '#ffd8a0'], 7, 3, 230, 120),
+    T('Winter Wonderland', 'Icy blue & white twinkle', ['#ffffff', '#7fd4ff', '#2a7fff', '#d6f2ff'], 5, 2, 210, 80),
+    T('Let It Snow', 'Snow drifting down', ['#ffffff', '#cfe9ff', '#ffffff', '#5aa9ff'], 8, 3, 200, 60),
+    T('Christmas Eve', 'Soft twinkling warm white', ['#ffd27f', '#ffb347', '#fff1d6'], 5, 2, 170, 60),
+    T('Silver & Gold', 'Elegant slow fade', ['#ffc400', '#fff1d6', '#ffffff', '#ffb000'], 16, 6, 210, 35),
+    T('Retro Bulbs', 'Old-school multicolor C9 bulbs', ['#ff0000', '#00c800', '#0040ff', '#ff8c00', '#ffd400'], 0, 3, 230, 0),
+    T('Holly Jolly', 'Green, red & gold breathing', ['#00a000', '#ff0000', '#ffb300'], 6, 5, 220, 55),
+    T('Gingerbread House', 'Spice, icing & candy', ['#b84a00', '#ffffff', '#ff0000', '#b84a00', '#ffffff', '#00c800'], 0, 3, 220, 0),
+    T('The Grinch', 'Grinch green with a red heart', ['#5aff00', '#5aff00', '#5aff00', '#ff0000'], 6, 4, 230, 70),
+    T('Nutcracker', 'Red, gold & royal blue march', ['#ff0000', '#ffb300', '#1a3cff'], 11, 4, 230, 90),
+    T('Blue Christmas', 'Deep blue & white glow', ['#0030ff', '#ffffff'], 6, 5, 210, 45),
+    T('Elf Party', 'Fast & fun red, green, white, yellow', ['#ff0000', '#00c800', '#ffffff', '#ffd400'], 2, 3, 240, 200),
+    T('Northern Lights', 'Teal, green & purple waves', ['#00ffa0', '#00b4ff', '#7a00ff', '#00ff40'], 11, 8, 220, 50),
+    T('Midnight Mass', 'Gold & warm white from the center', ['#ffb300', '#fff1d6', '#ffd27f'], 9, 4, 220, 70),
+  ]},
+  { id: 'thanksgiving', label: '🦃 Thanksgiving', themes: [
+    T('Harvest Glow', 'Warm amber & gold, steady', ['#ff6a00', '#ffb000', '#ff8c00'], 0, 5, 190, 0),
+    T('Autumn Leaves', 'Red, orange & gold drifting', ['#c81e00', '#ff5a00', '#ffb300', '#ff7a00'], 1, 4, 210, 35),
+    T('Pumpkin Pie', 'Pumpkin orange with cream', ['#ff5000', '#ff5000', '#ffd9a0'], 0, 3, 200, 0),
+    T('Cranberry & Gold', 'Slow breathing glow', ['#b0002a', '#ffb300'], 6, 6, 220, 50),
+    T('Candlelight Dinner', 'Soft flickering warm white', ['#ffb347', '#ff8c1a', '#ffd27f'], 5, 2, 140, 70),
+    T('Turkey Trot', 'Festive moving wave', ['#8b2500', '#ff6a00', '#ffc400', '#c81e00'], 11, 5, 230, 120),
+    T('Golden Hour', 'Gold fading to sunset', ['#ffc400', '#ff7a00', '#ff3c00'], 16, 8, 200, 40),
+    T('Gratitude', 'Gold comets from the center', ['#ffd27f', '#ff9a00', '#ffffff'], 9, 4, 220, 90),
+  ]},
 ];
 
+// Remember the last holiday tab; default to Thanksgiving in November, Christmas otherwise.
+let holiday = localStorage.getItem('tl_holiday') || (new Date().getMonth() === 10 ? 'thanksgiving' : 'christmas');
+const currentThemes = () => (HOLIDAYS.find(h => h.id === holiday) || HOLIDAYS[0]).themes;
+
+function setHoliday(id) {
+  holiday = id;
+  localStorage.setItem('tl_holiday', id);
+  renderThemes();
+}
+
 function renderThemes() {
-  $('themes').innerHTML = THEMES.map((t, i) =>
+  $('holidayTabs').innerHTML = HOLIDAYS.map(h =>
+    `<button class="${h.id === holiday ? 'on' : ''}" onclick="setHoliday('${h.id}')">${h.label}</button>`).join('');
+  $('themes').innerHTML = currentThemes().map((t, i) =>
     `<button onclick="applyTheme(${i})"><div class="stripe">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>` +
     `${esc(t.name)}<small>${esc(t.note)}</small></button>`).join('');
 }
@@ -293,7 +325,7 @@ function setThemeStill(still) {
   $('tStill').classList.toggle('on', still);
 }
 function applyTheme(i) {
-  const t = THEMES[i];
+  const t = currentThemes()[i];
   preset(t.colors, themeStill ? { ...t, mode: 0 } : t);
 }
 
