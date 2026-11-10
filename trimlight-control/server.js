@@ -202,7 +202,7 @@ async function saveAndPlay(deviceId, category, effect) {
 function showCustom(deviceId, b) {
   return saveAndPlay(deviceId, 1, {
     mode: clamp(b.mode, 0, 16, 0), speed: clamp(b.speed, 0, 255, 100),
-    brightness: clamp(b.brightness, 0, 255, 200),
+    brightness: clamp(b.brightness, 0, 255, 255),
     pixels: toPixels(b),
   });
 }
@@ -210,7 +210,7 @@ function showCustom(deviceId, b) {
 function showBuiltin(deviceId, b) {
   return saveAndPlay(deviceId, 0, {
     mode: clamp(b.mode, 0, 179, 0), speed: clamp(b.speed, 0, 255, 100),
-    brightness: clamp(b.brightness, 0, 255, 200), pixelLen: clamp(b.pixelLen, 1, 90, 30),
+    brightness: clamp(b.brightness, 0, 255, 255), pixelLen: clamp(b.pixelLen, 1, 90, 30),
     reverse: !!b.reverse,
   });
 }
@@ -263,7 +263,7 @@ function cleanPattern(x) {
     id: String(x.id || crypto.randomBytes(6).toString('hex')).slice(0, 40),
     name: String(x.name || 'My pattern').slice(0, 40),
     zones,
-    mode: clamp(x.mode, 0, 16, 0), speed: clamp(x.speed, 0, 255, 100), brightness: clamp(x.brightness, 0, 255, 200),
+    mode: clamp(x.mode, 0, 16, 0), speed: clamp(x.speed, 0, 255, 100), brightness: clamp(x.brightness, 0, 255, 255),
   };
 }
 

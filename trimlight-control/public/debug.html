@@ -97,8 +97,8 @@ async function runTest(label, path, body) {
     status(`${label} done. Did the lights MOVE? Note it, then run the other test.`);
   } catch (e) { status(e.message, false); notes.push(`${label} error: ${e.message}`); render(); }
 }
-const testBuiltin = () => runTest('Test A (built-in rainbow, mode 0)', 'builtin', { mode: 0, speed: 180, brightness: 220 });
-const testCustom = () => runTest('Test B (custom red/green chase, mode 1)', 'custom', { zones: [{ color: '#ff0000', count: 5 }, { color: '#00ff00', count: 5 }], mode: 1, speed: 200, brightness: 220 });
+const testBuiltin = () => runTest('Test A (built-in rainbow, mode 0)', 'builtin', { mode: 0, speed: 180, brightness: 255 });
+const testCustom = () => runTest('Test B (custom red/green chase, mode 1)', 'custom', { zones: [{ color: '#ff0000', count: 5 }, { color: '#00ff00', count: 5 }], mode: 1, speed: 200, brightness: 255 });
 
 async function copyReport() {
   const text = JSON.stringify(render(), null, 1);

@@ -95,10 +95,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - The app never creates a slot unless the effect list loaded, to avoid duplicates.
   - Calls run one at a time per controller (`withDeviceLock`).
   - These slots appear in Trimlight's own app, and our page hides them from "Patterns on this controller".
-- **Open issue (Nov 2026):** the owner reports that colors change but movement still doesn't play,
-  even after switching to save + view. A Diagnostics report from the owner is the next step: compare
-  Test A against Test B, and compare our saved "Lights App" effect with a moving pattern the owner
-  made in the Trimlight app.
+- Save + view (above) is confirmed working on the owner's real lights. Movement plays.
 - `GET .../device/notify-update-shadow` with `{deviceId, currentDate}` asks the controller to report
   fresh data before `device/get`.
 - Requests are spaced ~300 ms apart (`throttle()`), because the cloud returns error 20000 on bursts.
@@ -113,6 +110,10 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
 - Reference copy of the API docs: `docs/trimlight-api.md` in github.com/klieber/trimlight.
 - Hand-typed credentials once contained a Cyrillic "с" lookalike. `cleanCredential()` now
   normalizes lookalikes and whitespace.
+
+## The owner's preferences
+- **Full brightness by default.** Every theme and the Brightness slider start at 255; the owner dims
+  as needed. Keep new themes at 255.
 
 ## The owner's setup
 - Controllers on the account:
