@@ -118,8 +118,8 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
 ## Features so far (merged PRs #1–#11 on `main`, plus the save-and-play fix for animations)
 - **Control:** on/off/schedule for a controller or group, with per-controller error reporting.
 - **Themes:**
-  - 18 Christmas
-  - 8 Thanksgiving
+  - 34 Christmas
+  - 20 Thanksgiving
   - 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
   - a Moving/Still switch that applies the same colors with mode 0
   - tapping a theme loads it into the Pattern Builder
