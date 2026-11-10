@@ -120,6 +120,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
 - **Themes:**
   - 34 Christmas
   - 20 Thanksgiving
+  - 16 Patriotic (Fourth of July plus Veterans Day ones: Honor & Remember, Salute to Service, Yellow Ribbon, Purple Heart)
   - 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
   - a Moving/Still switch that applies the same colors with mode 0
   - tapping a theme loads it into the Pattern Builder
