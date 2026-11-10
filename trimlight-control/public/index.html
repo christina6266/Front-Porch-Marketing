@@ -23,6 +23,11 @@
   .swatches { display:flex; gap:8px; flex-wrap:wrap; }
   .swatches input[type=color] { width:44px; height:44px; border:0; padding:0; background:none; }
   .presets button { font-size:.85rem; padding:8px 10px; }
+  .themes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .themes button { text-align:left; padding:10px; }
+  .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
+  .themes .stripe span { flex:1; }
+  .themes small { display:block; color:var(--muted); font-size:.75rem; margin-top:2px; }
   #msg { min-height:1.2em; font-size:.9rem; margin-top:8px; }
   #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
   .hidden { display:none; }
@@ -57,6 +62,11 @@
     </section>
 
     <section class="card">
+      <h2>🦃 Thanksgiving</h2>
+      <div id="themes" class="themes"></div>
+    </section>
+
+    <section class="card">
       <h2>Colors</h2>
       <div class="presets row" style="margin-bottom:12px">
         <button onclick="preset(['#ffffff'])">Warm white</button>
@@ -72,11 +82,7 @@
         <button onclick="removeColor()">− Color</button>
       </div>
       <label>Animation</label>
-      <select id="customMode">
-        <option value="0">Static</option><option value="1">Stacking</option><option value="2">Comet</option>
-        <option value="3">Wave</option><option value="4">Strobe</option><option value="5">Fade</option>
-        <option value="6">Breath</option><option value="7">Chase</option><option value="8">Twinkle</option>
-      </select>
+      <select id="customMode"><option value="0">Static</option><option value="1">Chase forward</option><option value="2">Chase backward</option><option value="3">Chase middle → out</option><option value="4">Chase out → middle</option><option value="5">Stars (twinkle)</option><option value="6">Breath</option><option value="7">Comet forward</option><option value="8">Comet backward</option><option value="9">Comet middle → out</option><option value="10">Comet out → middle</option><option value="11">Wave forward</option><option value="12">Wave backward</option><option value="13">Wave middle → out</option><option value="14">Wave out → middle</option><option value="15">Strobe</option><option value="16">Fade</option></select>
       <label>LEDs per color: <span id="lpcV">3</span></label>
       <input id="lpc" type="range" min="1" max="30" value="3" oninput="lpcV.textContent=this.value">
       <label>Brightness: <span id="briV">200</span></label>
@@ -161,6 +167,7 @@ async function start() {
   if (!s.configured) return show('notConfigured');
   show('app');
   renderSwatches();
+  renderThemes();
   try {
     const res = await api('GET', '/api/devices');
     devices = res.data || res.devices || (Array.isArray(res) ? res : []);
@@ -234,7 +241,44 @@ function renderSwatches() {
 }
 function addColor() { if (colors.length < 30) { colors.push('#ffffff'); renderSwatches(); } }
 function removeColor() { if (colors.length > 1) { colors.pop(); renderSwatches(); } }
-function preset(list) { colors = [...list]; renderSwatches(); applyCustom(); }
+// opts (optional): { mode, speed, brightness, ledsPerColor }. Updates the sliders so a theme can be tweaked.
+function preset(list, opts = {}) {
+  colors = [...list];
+  renderSwatches();
+  const set = (id, labelId, v) => { if (v !== undefined) { $(id).value = v; if (labelId) $(labelId).textContent = v; } };
+  set('customMode', null, opts.mode ?? 0);
+  set('lpc', 'lpcV', opts.ledsPerColor);
+  set('bri', 'briV', opts.brightness);
+  set('spd', 'spdV', opts.speed);
+  applyCustom();
+}
+
+// Mode numbers match the Animation list: 0 Static, 1 Chase, 5 Stars, 6 Breath, 7 Comet, 11 Wave, 13 Wave middle→out, 16 Fade.
+const THEMES = [
+  { name: 'Harvest Glow', note: 'Warm amber & gold, steady',
+    colors: ['#ff6a00', '#ffb000', '#ff8c00'], mode: 0, ledsPerColor: 5, brightness: 190, speed: 0 },
+  { name: 'Autumn Leaves', note: 'Red, orange & gold drifting',
+    colors: ['#c81e00', '#ff5a00', '#ffb300', '#ff7a00'], mode: 1, ledsPerColor: 4, brightness: 210, speed: 35 },
+  { name: 'Pumpkin Pie', note: 'Pumpkin orange with cream',
+    colors: ['#ff5000', '#ff5000', '#ffd9a0'], mode: 0, ledsPerColor: 3, brightness: 200, speed: 0 },
+  { name: 'Cranberry & Gold', note: 'Slow breathing glow',
+    colors: ['#b0002a', '#ffb300'], mode: 6, ledsPerColor: 6, brightness: 220, speed: 50 },
+  { name: 'Candlelight Dinner', note: 'Soft flickering warm white',
+    colors: ['#ffb347', '#ff8c1a', '#ffd27f'], mode: 5, ledsPerColor: 2, brightness: 140, speed: 70 },
+  { name: 'Turkey Trot', note: 'Festive moving wave',
+    colors: ['#8b2500', '#ff6a00', '#ffc400', '#c81e00'], mode: 11, ledsPerColor: 5, brightness: 230, speed: 120 },
+  { name: 'Golden Hour', note: 'Gold fading to sunset',
+    colors: ['#ffc400', '#ff7a00', '#ff3c00'], mode: 16, ledsPerColor: 8, brightness: 200, speed: 40 },
+  { name: 'Gratitude', note: 'Gold comets from the center',
+    colors: ['#ffd27f', '#ff9a00', '#ffffff'], mode: 9, ledsPerColor: 4, brightness: 220, speed: 90 },
+];
+
+function renderThemes() {
+  $('themes').innerHTML = THEMES.map((t, i) =>
+    `<button onclick="applyTheme(${i})"><div class="stripe">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>` +
+    `${esc(t.name)}<small>${esc(t.note)}</small></button>`).join('');
+}
+function applyTheme(i) { const t = THEMES[i]; preset(t.colors, t); }
 
 start();
 </script>
