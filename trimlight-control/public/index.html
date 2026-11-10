@@ -320,7 +320,8 @@ async function loadDevice() {
   }
   try {
     const d = await api('GET', '/api/devices/' + encodeURIComponent(selected()));
-    const effects = d.effects || [];
+    // Hide the app's own reusable slots ("Lights App", "Lights App FX").
+    const effects = (d.effects || []).filter(e => !/^Lights App( FX)?$/.test(e.name || ''));
     $('effects').innerHTML = effects.length
       ? effects.map(e => `<button onclick="runEffect(${Number(e.id)})">${esc(e.name || 'Pattern ' + e.id)}</button>`).join('')
       : '<p style="color:var(--muted)">No saved patterns on this controller.</p>';

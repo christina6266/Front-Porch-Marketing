@@ -72,16 +72,35 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
 - `POST /v1/oauth/resources/device/get` returns full details: `switchState`, saved `effects`, …
   It needs `{deviceId, currentDate}`.
 - `POST .../device/update` with `{deviceId, payload:{switchState}}`: 0 = off, 1 = manual on, 2 = follow schedule.
-- `POST .../device/effect/preview`:
-  - `category 0` = built-in effect: `mode` 0–179, `speed`, `brightness`, `pixelLen`, `reverse`
-  - `category 1` = custom effect: `mode` 0–16, `speed`, `brightness`, and
-    `pixels: [{index, count, color:int, disable}]`, up to 30 zones, which the controller repeats along the strip
-- `POST .../device/effect/view` with `{payload:{id}}` runs an effect saved on the controller.
+- **Don't use `POST .../device/effect/preview`.** It is broken on current firmware (1.17.x):
+  colors show but the animation is ignored. The owner reported "movements not working",
+  and the open-source trimlight-edge-ha integration dropped it for the same reason.
+- Instead, the app saves the effect, then plays it (`saveAndPlay()` in `server.js`):
+  - `POST .../device/effect/save` with
+    `{deviceId, payload:{id, name, category, mode, speed, brightness, …}}`.
+    Use `id: -1` to create; the response is `payload.id`.
+    - `category 0` = built-in effect: `mode` 0–179, `pixelLen` 1–90, `reverse`.
+      The cloud rejects a built-in save without `pixelLen`.
+    - `category 1` = custom effect: `mode` 0–16, `pixels` = 30 entries `{index, count 0–60, color:int, disable}`.
+      Unused entries have count 0, and the lit entries repeat along the strip.
+  - Then `POST .../device/effect/view` with `{payload:{id}}`.
+  - Each controller has one reusable slot per category: **"Lights App"** (custom) and
+    **"Lights App FX"** (built-in). Slot ids are looked up by name through `device/get` and cached.
+  - The app never creates a slot unless the effect list loaded, to avoid duplicates.
+  - Calls run one at a time per controller (`withDeviceLock`).
+  - These slots appear in Trimlight's own app, and our page hides them from "Patterns on this controller".
+- Requests are spaced ~300 ms apart (`throttle()`), because the cloud returns error 20000 on bursts.
+- Custom mode numbers, confirmed against a copy of the official API docs:
+  - 0 Static
+  - 1 Chase forward · 2 Chase backward · 3 Chase middle→out · 4 Chase out→middle
+  - 5 Stars · 6 Breath
+  - 7 Comet forward · 8 Comet backward · 9 Comet middle→out · 10 Comet out→middle
+  - 11 Wave forward · 12 Wave backward · 13 Wave middle→out · 14 Wave out→middle
+  - 15 Strobe · 16 Solid fade
+- `speed` runs 0 (slowest) to 255 (fastest).
+- Reference copy of the API docs: `docs/trimlight-api.md` in github.com/klieber/trimlight.
 - Hand-typed credentials once contained a Cyrillic "с" lookalike. `cleanCredential()` now
   normalizes lookalikes and whitespace.
-- **Unverified:** the labels for custom animation modes 0–16 (Static, Chase…, Stars,
-  Breath, Comet…, Wave…, Strobe, Fade) are a best guess. If the owner says an animation
-  looks wrong, fix the labels in the `customMode` select and the comments in `shared.js`.
 
 ## The owner's setup
 - Controllers on the account:
@@ -96,7 +115,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - ★ Backyard: Trimlight Back + Pergola + Trimlight Landscape
 - Home: Austin, TX, Central Time.
 
-## Features so far (merged PRs #1–#10 on `main`)
+## Features so far (merged PRs #1–#11 on `main`, plus the save-and-play fix for animations)
 - **Control:** on/off/schedule for a controller or group, with per-controller error reporting.
 - **Themes:**
   - 18 Christmas
@@ -135,5 +154,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - `<option>` elements are never "visible", so wait for them with `state: 'attached'`.
   - Use `devices['iPhone 13']` with `tap()` for touch checks.
   - Set `timezoneId: 'America/Chicago'` for timer tests.
+- The fake server stores saved effects, so `fake-log.txt` shows `SAVE … "Lights App" … mode=…`
+  followed by `VIEW`. A `PREVIEW` line means something is still using the broken endpoint.
 - To test the scheduler, create a timer for the current Chicago minute, then watch
   `dev/fake-log.txt` and the server log line `⏰ Timer … → N controller(s)`.
