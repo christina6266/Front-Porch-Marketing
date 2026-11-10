@@ -1,4 +1,7 @@
-# Trimlight Control — notes for Claude
+# Trimlight Control ("the Lights app"): notes for Claude
+
+> The owner calls this the **Lights app**. It is NOT the FrontPorch app (the repo root),
+> and NOT the lowercase `frontporch-marketing` repository. See `../CLAUDE.md` for the naming table.
 
 A phone-friendly web app that controls the owner's **Trimlight Edge** permanent house
 lights through Trimlight's official API. It replaces the Trimlight Edge phone app,
