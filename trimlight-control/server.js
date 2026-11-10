@@ -5,6 +5,7 @@
 //   PORT           (optional, default 3000)
 
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +43,29 @@ class HttpError extends Error {
   constructor(status, message, details) { super(message); this.status = status; this.details = details; }
 }
 
+// Trimlight's device list is a GET request with a JSON body. fetch() refuses
+// that ("Request with GET/HEAD method cannot have body"), so use https directly.
+function httpsRequest(url, { method, headers }, payload) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method,
+      headers: payload ? { ...headers, 'Content-Length': Buffer.byteLength(payload) } : headers,
+      timeout: 15000,
+    }, res => {
+      let text = '';
+      res.setEncoding('utf8');
+      res.on('data', c => { text += c; });
+      res.on('end', () => resolve({
+        status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, text,
+      }));
+    });
+    req.on('timeout', () => req.destroy(new HttpError(504, 'Trimlight did not respond in time')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
 async function trimlight(method, apiPath, body) {
   if (!configured()) throw new HttpError(503, 'Set TRIMLIGHT_CLIENT_ID and TRIMLIGHT_CLIENT_SECRET.');
   const clientId = cleanCredential('TRIMLIGHT_CLIENT_ID');
@@ -49,12 +73,11 @@ async function trimlight(method, apiPath, body) {
   const ts = Date.now().toString();
   const signature = crypto.createHmac('sha256', clientSecret)
     .update(`Trimlight|${clientId}|${ts}`).digest('base64');
-  const resp = await fetch(TRIMLIGHT_BASE + apiPath, {
+  const resp = await httpsRequest(TRIMLIGHT_BASE + apiPath, {
     method,
     headers: { authorization: signature, 'S-ClientId': clientId, 'S-Timestamp': ts, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await resp.text();
+  }, body ? JSON.stringify(body) : undefined);
+  const text = resp.text;
   let json;
   try { json = JSON.parse(text); } catch { json = { raw: text }; }
   // Trimlight returns { code: 0, desc: 'success', payload: ... } on success
