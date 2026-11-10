@@ -115,28 +115,3 @@ Cashout threshold: 500 homes. Resets every Monday.
 ## Resetting demo data
 
 Delete `canvashq.db` and restart the server to re-seed fresh demo data including 4 zones across 2 active canvasses.
-
----
-
-## Trimlight Edge lights
-
-Control your Trimlight Edge controllers from **http://localhost:3000/lights.html**
-(sign in with the dashboard login). It can turn lights on, off, or back to their
-schedule, show custom colors and holiday presets, show built-in animations, and
-run patterns saved on the controller.
-
-1. Get your Client ID and Client secret at https://trimlight.ledhue.com ("Get API credentials").
-2. Set them as environment variables. **Do not put them in the code or commit them.**
-   - Railway: Project → Variables → add `TRIMLIGHT_CLIENT_ID` and `TRIMLIGHT_CLIENT_SECRET`.
-   - Local:
-     ```bash
-     export TRIMLIGHT_CLIENT_ID=your-client-id
-     export TRIMLIGHT_CLIENT_SECRET=your-client-secret
-     node server.js
-     ```
-
-API routes (business login required): `GET /api/trimlight/devices`,
-`GET /api/trimlight/devices/:id`, `POST /api/trimlight/devices/:id/switch` `{state:"on"|"off"|"timer"}`,
-`POST /api/trimlight/devices/:id/custom` `{colors:["#ff0000"], mode, brightness, speed, ledsPerColor}`,
-`POST /api/trimlight/devices/:id/builtin` `{mode:0-179, brightness, speed}`,
-`POST /api/trimlight/devices/:id/effects/:effectId/run`.
