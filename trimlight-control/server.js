@@ -15,6 +15,27 @@ const sessions = new Map(); // token -> expiry ms
 
 // ─── Trimlight API ─────────────────────────────────────────────────────────────
 
+// Credentials typed by hand (or copied from a screenshot) can pick up spaces or
+// look-alike Cyrillic/Greek letters (e.g. "с" instead of "c"). Trimlight
+// credentials are plain letters and digits, so map those back to ASCII.
+const LOOKALIKES = {
+  'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'і': 'i', 'ј': 'j', 'ѕ': 's',
+  'ԁ': 'd', 'ԛ': 'q', 'ԝ': 'w', 'һ': 'h', 'ӏ': 'l', 'ν': 'v', 'ο': 'o', 'α': 'a', 'ι': 'i',
+  'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'І': 'I', 'Ј': 'J', 'К': 'K', 'М': 'M',
+  'О': 'O', 'Р': 'P', 'Ѕ': 'S', 'Т': 'T', 'Х': 'X', 'У': 'Y', 'Ζ': 'Z', 'Ν': 'N', 'Β': 'B',
+  'Ε': 'E', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M', 'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Χ': 'X', 'Υ': 'Y', 'Α': 'A',
+  '０': '0', '１': '1', '２': '2', '３': '3', '４': '4', '５': '5', '６': '6', '７': '7', '８': '8', '９': '9',
+};
+
+function cleanCredential(name) {
+  const raw = process.env[name] || '';
+  const cleaned = raw.normalize('NFKC').replace(/\s+/g, '').replace(/./gu, ch => LOOKALIKES[ch] || ch);
+  if (/[^\x21-\x7e]/.test(cleaned)) {
+    throw new HttpError(500, `${name} contains an unusual character. Re-paste it in your host's variables using the Copy button on trimlight.ledhue.com.`);
+  }
+  return cleaned;
+}
+
 const configured = () => !!(process.env.TRIMLIGHT_CLIENT_ID && process.env.TRIMLIGHT_CLIENT_SECRET);
 
 class HttpError extends Error {
@@ -23,9 +44,10 @@ class HttpError extends Error {
 
 async function trimlight(method, apiPath, body) {
   if (!configured()) throw new HttpError(503, 'Set TRIMLIGHT_CLIENT_ID and TRIMLIGHT_CLIENT_SECRET.');
-  const clientId = process.env.TRIMLIGHT_CLIENT_ID;
+  const clientId = cleanCredential('TRIMLIGHT_CLIENT_ID');
+  const clientSecret = cleanCredential('TRIMLIGHT_CLIENT_SECRET');
   const ts = Date.now().toString();
-  const signature = crypto.createHmac('sha256', process.env.TRIMLIGHT_CLIENT_SECRET)
+  const signature = crypto.createHmac('sha256', clientSecret)
     .update(`Trimlight|${clientId}|${ts}`).digest('base64');
   const resp = await fetch(TRIMLIGHT_BASE + apiPath, {
     method,
