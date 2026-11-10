@@ -23,6 +23,7 @@
   .swatches { display:flex; gap:8px; flex-wrap:wrap; }
   .swatches input[type=color] { width:44px; height:44px; border:0; padding:0; background:none; }
   .presets button { font-size:.85rem; padding:8px 10px; }
+  .toggle button.on { background:var(--accent); }
   .themes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .themes button { text-align:left; padding:10px; }
   .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
@@ -63,6 +64,10 @@
 
     <section class="card">
       <h2>🦃 Thanksgiving</h2>
+      <div class="toggle row" style="margin-bottom:10px">
+        <button id="tMove" class="on" onclick="setThemeStill(false)">✨ Moving</button>
+        <button id="tStill" onclick="setThemeStill(true)">● Still</button>
+      </div>
       <div id="themes" class="themes"></div>
     </section>
 
@@ -168,6 +173,7 @@ async function start() {
   show('app');
   renderSwatches();
   renderThemes();
+  setThemeStill(themeStill);
   try {
     const res = await api('GET', '/api/devices');
     devices = res.data || res.devices || (Array.isArray(res) ? res : []);
@@ -278,7 +284,18 @@ function renderThemes() {
     `<button onclick="applyTheme(${i})"><div class="stripe">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>` +
     `${esc(t.name)}<small>${esc(t.note)}</small></button>`).join('');
 }
-function applyTheme(i) { const t = THEMES[i]; preset(t.colors, t); }
+// "Still" shows the same theme colors without animation.
+let themeStill = localStorage.getItem('tl_theme_still') === '1';
+function setThemeStill(still) {
+  themeStill = still;
+  localStorage.setItem('tl_theme_still', still ? '1' : '0');
+  $('tMove').classList.toggle('on', !still);
+  $('tStill').classList.toggle('on', still);
+}
+function applyTheme(i) {
+  const t = THEMES[i];
+  preset(t.colors, themeStill ? { ...t, mode: 0 } : t);
+}
 
 start();
 </script>
