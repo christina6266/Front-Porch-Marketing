@@ -24,6 +24,7 @@ const devices = [
 // Saved effects per controller, like the real cloud: effect/save with id -1 creates one.
 const effects = Object.fromEntries(devices.map(d => [d.deviceId, [{ id: 1, name: 'Saved on controller', category: 1, mode: 0 }]]));
 let nextId = 100;
+const current = {};   // deviceId → effect last played
 
 const dir = __dirname;
 const log = line => fs.appendFileSync(path.join(dir, 'fake-log.txt'), line + '\n');
@@ -35,14 +36,22 @@ https.createServer({ key: fs.readFileSync(path.join(dir, 'k.pem')), cert: fs.rea
     const endpoint = req.url.replace('/trimlight/v1/oauth/resources/', '');
     let payload = {};
     if (endpoint === 'devices') payload = { data: devices };
-    else if (endpoint === 'device/get') payload = { switchState: 1, effects: effects[b.deviceId] || [] };
+    else if (endpoint === 'device/get') payload = {
+      name: (devices.find(d => d.deviceId === b.deviceId) || {}).name, switchState: 1, connectivity: 1, state: 0,
+      fwVersionName: 'fake-1.0', ports: [{ id: 0, start: 1, end: 300 }],
+      effects: effects[b.deviceId] || [], currentEffect: current[b.deviceId] || null,
+    };
+    else if (endpoint === 'device/effect/view') {
+      current[b.deviceId] = (effects[b.deviceId] || []).find(e => e.id === b.payload.id) || null;
+      log(`VIEW ${b.deviceId} id=${b.payload.id}`);
+    }
     else if (endpoint === 'device/effect/save') {
       const list = effects[b.deviceId] || (effects[b.deviceId] = []);
       const e = { ...b.payload };
       if (e.id === -1 || !list.some(x => x.id === e.id)) e.id = nextId++;
       effects[b.deviceId] = [...list.filter(x => x.id !== e.id), e];
       payload = { id: e.id };
-      log(`SAVE ${b.deviceId} id=${e.id} "${e.name}" category=${e.category} mode=${e.mode} speed=${e.speed} lit=${(e.pixels || []).filter(p => p.count).length}/${(e.pixels || []).length}`);
+      log(`SAVE ${b.deviceId} id=${e.id} "${e.name}" category=${e.category} mode=${e.mode} speed=${e.speed} brightness=${e.brightness} lit=${(e.pixels || []).filter(p => p.count).length}/${(e.pixels || []).length}`);
     } else if (endpoint === 'device/effect/preview') {
       log(`PREVIEW ${b.deviceId} (broken on real firmware!)`);
     } else log(`${endpoint.toUpperCase()} ${body}`);

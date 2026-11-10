@@ -59,6 +59,12 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - Built-in animations (0–179)
   - Patterns on this controller
 - Data files in `DATA_DIR`: `timers.json`, `patterns.json`.
+- `public/debug.html` (**🔧 Diagnostics**, linked at the bottom of the main page):
+  - Pick a controller, then run **Test A** (built-in rainbow) and **Test B** (custom red/green chase).
+  - The page reads back the controller's details (firmware, `currentEffect`, saved effects) and the
+    last Trimlight calls (`/api/debug/log`; request bodies only, no credentials).
+  - **Copy report** produces text the owner can paste into chat.
+  - Use it whenever the real lights behave differently from the fake server.
 
 ## Trimlight API facts learned the hard way
 - Base URL: `https://trimlight.ledhue.com/trimlight`.
@@ -89,6 +95,9 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - The app never creates a slot unless the effect list loaded, to avoid duplicates.
   - Calls run one at a time per controller (`withDeviceLock`).
   - These slots appear in Trimlight's own app, and our page hides them from "Patterns on this controller".
+- Save + view (above) is confirmed working on the owner's real lights. Movement plays.
+- `GET .../device/notify-update-shadow` with `{deviceId, currentDate}` asks the controller to report
+  fresh data before `device/get`.
 - Requests are spaced ~300 ms apart (`throttle()`), because the cloud returns error 20000 on bursts.
 - Custom mode numbers, confirmed against a copy of the official API docs:
   - 0 Static
@@ -101,6 +110,10 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
 - Reference copy of the API docs: `docs/trimlight-api.md` in github.com/klieber/trimlight.
 - Hand-typed credentials once contained a Cyrillic "с" lookalike. `cleanCredential()` now
   normalizes lookalikes and whitespace.
+
+## The owner's preferences
+- **Full brightness by default.** Every theme and the Brightness slider start at 255; the owner dims
+  as needed. Keep new themes at 255.
 
 ## The owner's setup
 - Controllers on the account:
