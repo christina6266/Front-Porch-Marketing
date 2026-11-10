@@ -1,0 +1,8 @@
+{
+  "name": "trimlight-control",
+  "version": "1.0.0",
+  "description": "Control Trimlight Edge permanent lights from your phone",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
