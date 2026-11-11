@@ -51,13 +51,16 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - NOAA sunrise/sunset
 - `public/shared.js`: `GROUPS` and `HOLIDAYS` (the theme lists). Used by both the page (`window.TL`)
   and the server (`require`). Add new themes or holiday tabs here.
-- `public/index.html`: the whole UI. Cards, top to bottom:
-  - Controller: dropdown, plus On / Off / Schedule
-  - Themes: holiday tabs, plus a Moving/Still switch
-  - Timers
-  - Pattern Builder: 30 zones, color picker pop-up, My patterns
-  - Built-in animations (0–179)
-  - Patterns on this controller
+- `public/index.html`: the whole UI, laid out like a phone app (the owner disliked one long scrolling page):
+  - **Sticky header:** controller/group dropdown, On / Off / ⏱ (schedule), and the status message.
+  - **Bottom menu (`showScreen()`):** the last screen used is remembered in localStorage. Each card
+    carries `data-screen` to say which screen it belongs to.
+    - **🎨 Themes:** 🔍 search across every tab (name, description, tab name), category chips in one
+      swipeable row, Moving/Still switch, and compact tiles 3 across.
+    - **⏰ Timers**
+    - **🖌 Builder:** Pattern Builder with 30 zones, color picker pop-up and My patterns.
+    - **⚙️ More:** built-in animations (0–179), patterns on this controller, and the Diagnostics link.
+  - New cards need a `data-screen` attribute, or they show on every screen.
 - Data files in `DATA_DIR`: `timers.json`, `patterns.json`.
 - `public/debug.html` (**🔧 Diagnostics**, linked at the bottom of the main page):
   - Pick a controller, then run **Test A** (built-in rainbow) and **Test B** (custom red/green chase).
@@ -136,7 +139,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - 16 Patriotic (Fourth of July plus Veterans Day ones: Honor & Remember, Salute to Service, Yellow Ribbon, Purple Heart)
   - 18 Halloween
   - 12 Seasons (Spring Blossom, Bluebonnets, April Showers, Pool Party, Fiesta, Fall Harvest, Winter Frost, …)
-  - 12 Game Day: the owner's teams, 49ers (scarlet & gold) and Braves (navy, red & white)
+  - 12 ⭐ Game Day: the owner's teams, 49ers (scarlet & gold) and Braves (navy, red & white)
   - 14 Texas Teams: Austin FC (×2), Spurs (×2), Mavericks, Rockets, Astros, Rangers, Cowboys, Texans, Stars,
     FC Dallas, Dynamo, Longhorns. Some of these also appear in their league tabs.
   - 30 Basketball (all NBA teams) and 30 Baseball (all MLB teams)

@@ -125,7 +125,7 @@ const HOLIDAYS = [
     T('Winter Frost', 'Icy blue & white shimmer', ['#9fdfff', '#ffffff', '#5aa9ff'], 5, 2, 255, 70),
     T('First Snow', 'Soft white flakes drifting', ['#ffffff', '#e8f6ff', '#000000'], 8, 2, 255, 40),
   ]},
-  { id: 'gameday', label: '🏈 Game Day', themes: [
+  { id: 'gameday', label: '⭐ Game Day', themes: [
     T('49ers Red & Gold', 'Scarlet & gold, steady', ['#e00000', '#ffb000'], 0, 4, 255, 0),
     T('Niners Faithful', 'Scarlet, gold & white marching along', ['#e00000', '#ffb000', '#ffffff'], 1, 4, 255, 70),
     T('Gold Rush', 'Gold comets racing over scarlet', ['#ffb000', '#ffd27f', '#e00000', '#e00000'], 7, 4, 255, 190),
