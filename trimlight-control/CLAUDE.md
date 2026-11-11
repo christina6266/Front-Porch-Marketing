@@ -135,7 +135,11 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - 20 Thanksgiving
   - 16 Patriotic (Fourth of July plus Veterans Day ones: Honor & Remember, Salute to Service, Yellow Ribbon, Purple Heart)
   - 18 Halloween
+  - 12 Seasons (Spring Blossom, Bluebonnets, April Showers, Pool Party, Fiesta, Fall Harvest, Winter Frost, …)
   - 12 Game Day: the owner's teams, 49ers (scarlet & gold) and Braves (navy, red & white)
+  - 14 Texas Teams: Austin FC (×2), Spurs (×2), Mavericks, Rockets, Astros, Rangers, Cowboys, Texans, Stars,
+    FC Dallas, Dynamo, Longhorns. Some of these also appear in their league tabs.
+  - 30 Basketball (all NBA teams) and 30 Baseball (all MLB teams)
   - 38 Football: all 32 NFL teams + 6 Texas college (Longhorns, Aggies, Red Raiders, Baylor, TCU, Houston).
     One moving theme per team; the Still switch gives the steady version.
   - 23 "More", including celebrations: Birthday, Gender Reveal, Wedding, Graduation, Mardi Gras,
