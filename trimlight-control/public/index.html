@@ -12,7 +12,8 @@
   h1 { font-size: 1.4rem; margin: 8px 0 16px; }
   h2 { font-size: 1rem; margin: 0 0 12px; color: var(--muted); font-weight:600; }
   .card { background:var(--card); border-radius:14px; padding:16px; margin-bottom:14px; }
-  button { font: inherit; border:0; border-radius:10px; padding:12px 14px; background:#334155; color:var(--text); cursor:pointer; }
+  button { font: inherit; border:0; border-radius:10px; padding:12px 14px; background:#334155; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  button:active { filter:brightness(1.25); }
   button.primary { background:var(--accent); }
   button:disabled { opacity:.5; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -22,12 +23,41 @@
   input[type=range] { width:100%; }
   .presets button { font-size:.85rem; padding:8px 10px; }
   .toggle button.on { background:var(--accent); }
-  #holidayTabs button { font-weight:600; }
-  .themes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .themes button { text-align:left; padding:10px; }
-  .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
+  /* Themes home: category cards, 2 across */
+  .cats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cats button { text-align:left; padding:12px; display:flex; flex-direction:column; gap:6px; min-height:92px; }
+  .cats .emoji { font-size:1.6rem; line-height:1; }
+  .cats b { font-size:.95rem; }
+  .cats small { color:var(--muted); font-size:.75rem; }
+  .cats .stripe { display:flex; height:6px; border-radius:3px; overflow:hidden; margin-top:auto; }
+  .cats .stripe span { flex:1; }
+  .sub { font-size:.85rem; color:var(--muted); margin:4px 0 8px; font-weight:600; }
+  #recentWrap { margin-bottom:14px; }
+  .cat-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .cat-head button { padding:8px 12px; font-size:.9rem; }
+  .cat-head b { font-size:1.05rem; }
+  .search { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; margin-bottom:10px; }
+  /* Compact theme tiles, 3 across */
+  .themes { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+  .themes button { text-align:left; padding:8px; font-size:.78rem; line-height:1.2; min-height:58px; display:flex; flex-direction:column; }
+  .themes .stripe { display:flex; height:7px; border-radius:4px; overflow:hidden; margin-bottom:6px; flex:none; }
   .themes .stripe span { flex:1; }
-  .themes small { display:block; color:var(--muted); font-size:.75rem; margin-top:2px; }
+  .themes small { display:block; color:var(--muted); font-size:.68rem; margin-top:2px; }
+  .empty-note { grid-column:1 / -1; color:var(--muted); font-size:.9rem; padding:8px 0; }
+  /* Sticky header + bottom menu */
+  .topbar { position:sticky; top:0; z-index:20; background:var(--bg); padding:8px 0 6px; margin:0 0 10px; }
+  .topbar .bar { display:flex; gap:6px; }
+  .topbar select { flex:1; min-width:0; padding:9px; }
+  .topbar .bar button { padding:9px 12px; font-size:.9rem; }
+  .topbar #msg { margin-top:4px; font-size:.82rem; min-height:1.1em; }
+  .tabbar { position:fixed; left:0; right:0; bottom:0; z-index:30; background:#0b1222; border-top:1px solid #334155;
+            display:flex; justify-content:center; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar button { flex:1; max-width:140px; background:none; padding:6px 0; font-size:.72rem; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .tabbar button span { font-size:1.35rem; }
+  .tabbar button.on { color:var(--text); }
+  .tabbar button.on span { transform:scale(1.1); }
+  #app { padding-bottom:84px; }
+  [data-screen].off-screen { display:none; }
   .timer { display:flex; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #334155; }
   .timer:first-child { border-top:0; }
   .timer .info { flex:1; font-size:.9rem; }
@@ -84,7 +114,7 @@
 </head>
 <body>
 <main>
-  <h1>🎄 Trimlight Edge</h1>
+  <h1 id="title">🎄 Trimlight Edge</h1>
 
   <section id="login" class="card hidden">
     <h2>Sign in</h2>
@@ -98,28 +128,33 @@
   </section>
 
   <div id="app" class="hidden">
-    <section class="card">
-      <h2>Controller</h2>
-      <select id="device" onchange="loadDevice()"></select>
-      <div class="row" style="margin-top:12px">
+    <header class="topbar">
+      <div class="bar">
+        <select id="device" onchange="loadDevice()" aria-label="Lights"></select>
         <button class="primary" onclick="setSwitch('on')">On</button>
         <button onclick="setSwitch('off')">Off</button>
-        <button onclick="setSwitch('timer')">Schedule</button>
+        <button onclick="setSwitch('timer')" title="Follow schedule">⏱</button>
       </div>
       <div id="msg"></div>
-    </section>
+    </header>
 
-    <section class="card">
-      <h2>🎨 Themes</h2>
-      <div id="holidayTabs" class="toggle row" style="margin-bottom:8px"></div>
+    <section class="card" data-screen="themes">
+      <!-- Home: search, recently used, category cards. Category page: back + that category's themes. -->
+      <div id="catHead" class="cat-head hidden">
+        <button onclick="history.back()">← All themes</button>
+        <b id="catTitle"></b>
+      </div>
+      <input id="themeSearch" class="search" type="search" placeholder="🔍 Search all themes (e.g. Cowboys, ghost, blue)" oninput="renderThemes()" autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="toggle row" style="margin-bottom:10px">
         <button id="tMove" class="on" onclick="setThemeStill(false)">✨ Moving</button>
         <button id="tStill" onclick="setThemeStill(true)">● Still</button>
       </div>
+      <div id="recentWrap" class="hidden"><h3 class="sub">Recently used</h3><div id="recent" class="themes"></div></div>
+      <div id="categories" class="cats"></div>
       <div id="themes" class="themes"></div>
     </section>
 
-    <section class="card">
+    <section class="card" data-screen="timers">
       <h2>⏰ Timers</h2>
       <div id="timerWarn" class="warn hidden">Timers are saved on the server but will be erased the next time the app is redeployed. Add a Railway Volume to keep them (see README).</div>
       <div id="timerList"></div>
@@ -165,8 +200,8 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2>🎨 Pattern Builder</h2>
+    <section class="card" data-screen="builder">
+      <h2>🖌 Pattern Builder</h2>
       <p class="hint">Tap a zone, then tap a color to paint it. The number in each zone is how many LEDs it lights. Empty zones are skipped and the pattern repeats around the whole house.</p>
       <div id="palette" class="palette"></div>
       <div id="housePreview" class="house"></div>
@@ -197,7 +232,7 @@
       <div id="myPatterns"></div>
     </section>
 
-    <section class="card">
+    <section class="card" data-screen="more">
       <h2>Built-in animations</h2>
       <label>Animation number (0–179)</label>
       <input id="bMode" type="number" min="0" max="179" value="0">
@@ -208,11 +243,18 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-screen="more">
       <h2>Patterns on this controller</h2>
       <div id="effects" class="effects"><p style="color:var(--muted)">Loading…</p></div>
     </section>
-    <p style="text-align:center; margin:18px 0 30px"><a href="debug.html" style="color:var(--muted)">🔧 Diagnostics</a></p>
+    <p data-screen="more" style="text-align:center; margin:18px 0 30px"><a href="debug.html" style="color:var(--muted)">🔧 Diagnostics</a></p>
+
+    <nav class="tabbar">
+      <button data-tab="themes" onclick="showScreen('themes')"><span>🎨</span>Themes</button>
+      <button data-tab="timers" onclick="showScreen('timers')"><span>⏰</span>Timers</button>
+      <button data-tab="builder" onclick="showScreen('builder')"><span>🖌</span>Builder</button>
+      <button data-tab="more" onclick="showScreen('more')"><span>⚙️</span>More</button>
+    </nav>
   </div>
 
   <div id="colorModal" class="modal hidden" onclick="if (event.target === this) closeColorPicker()">
@@ -278,12 +320,25 @@ function groupMembers(group) {
   return devices.filter(d => isOnline(d) && (!wanted || wanted.includes(String(d.name || '').toLowerCase())));
 }
 
+// ─── Screens (bottom menu) ────────────────────────────────────────────────────
+let screen = localStorage.getItem('tl_screen') || 'themes';
+function showScreen(name) {
+  if (name === 'themes' && screen === 'themes' && themeView !== 'home') return history.back();
+  screen = name;
+  localStorage.setItem('tl_screen', name);
+  document.querySelectorAll('[data-screen]').forEach(el => el.classList.toggle('off-screen', el.dataset.screen !== name));
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  window.scrollTo(0, 0);
+}
+
 async function start() {
   show('login', !token); show('app', false); show('notConfigured', false);
   if (!token) return;
   const s = await api('GET', '/api/status');
   if (!s.configured) return show('notConfigured');
   show('app');
+  show('title', false);
+  showScreen(screen);
   renderBuilder();
   loadPatterns();
   renderThemes();
@@ -539,6 +594,7 @@ async function savePattern() {
 function editPattern(id) {
   const p = myPatterns.find(x => x.id === id); if (!p) return;
   loadZones(p.zones); setSliders(p); editingPatternId = p.id; editingPatternName = p.name; renderBuilder();
+  showScreen('builder');
   $('zones').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function showPattern(id) {
@@ -552,22 +608,60 @@ async function deletePattern(id) {
   catch (e) { msg(e.message, false); }
 }
 
-// Remember the last holiday tab; default to Thanksgiving in November, Christmas otherwise.
-let holiday = localStorage.getItem('tl_holiday') || (new Date().getMonth() === 10 ? 'thanksgiving' : 'christmas');
-const currentThemes = () => (HOLIDAYS.find(h => h.id === holiday) || HOLIDAYS[0]).themes;
+// Themes screen: 'home' (categories) or a category id. Category pages get a history entry,
+// so the iPhone back swipe returns to the category list.
+let themeView = 'home';
+const recentKey = 'tl_recent';
+let recent = JSON.parse(localStorage.getItem(recentKey) || '[]');   // [{ h, name }] newest first
 
-function setHoliday(id) {
-  holiday = id;
-  localStorage.setItem('tl_holiday', id);
+function openCategory(id) {
+  themeView = id;
+  $('themeSearch').value = '';
+  history.pushState({ themes: id }, '');
   renderThemes();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', () => {
+  if (themeView !== 'home') { themeView = 'home'; renderThemes(); window.scrollTo(0, 0); }
+});
+
+function themeTile(holidayId, i, t, showTab) {
+  const tab = showTab ? HOLIDAYS.find(h => h.id === holidayId).label.split(' ')[0] + ' ' : '';
+  return `<button onclick="applyTheme('${holidayId}', ${i})" title="${esc(t.note)}"><div class="stripe">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>` +
+    `${tab}${esc(t.name)}</button>`;
 }
 
 function renderThemes() {
-  $('holidayTabs').innerHTML = HOLIDAYS.map(h =>
-    `<button class="${h.id === holiday ? 'on' : ''}" onclick="setHoliday('${h.id}')">${h.label}</button>`).join('');
-  $('themes').innerHTML = currentThemes().map((t, i) =>
-    `<button onclick="applyTheme(${i})"><div class="stripe">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>` +
-    `${esc(t.name)}<small>${esc(t.note)}</small></button>`).join('');
+  const q = ($('themeSearch').value || '').trim().toLowerCase();
+  const cat = themeView !== 'home' && HOLIDAYS.find(h => h.id === themeView);
+  if (themeView !== 'home' && !cat) themeView = 'home';
+  show('catHead', !!cat);
+  show('themeSearch', !cat);
+  if (cat) $('catTitle').textContent = `${cat.label} · ${cat.themes.length}`;
+
+  if (cat) {                                   // one category's themes
+    show('recentWrap', false); $('categories').innerHTML = '';
+    $('themes').innerHTML = cat.themes.map((t, i) => themeTile(cat.id, i, t, false)).join('');
+  } else if (q) {                              // search every category
+    show('recentWrap', false); $('categories').innerHTML = '';
+    const hits = HOLIDAYS.flatMap(h => h.themes.map((t, i) => ({ h, t, i })))
+      .filter(({ h, t }) => (t.name + ' ' + t.note + ' ' + h.label).toLowerCase().includes(q));
+    $('themes').innerHTML = hits.length ? hits.map(({ h, t, i }) => themeTile(h.id, i, t, true)).join('')
+      : '<p class="empty-note">No themes match. Try another word.</p>';
+  } else {                                     // home: recently used + category cards
+    const rec = recent.map(r => {
+      const h = HOLIDAYS.find(x => x.id === r.h); const i = h ? h.themes.findIndex(t => t.name === r.name) : -1;
+      return i >= 0 ? themeTile(h.id, i, h.themes[i], true) : '';
+    }).filter(Boolean);
+    show('recentWrap', rec.length > 0); $('recent').innerHTML = rec.join('');
+    $('themes').innerHTML = '';
+    $('categories').innerHTML = HOLIDAYS.map(h => {
+      const [emoji, ...words] = h.label.split(' ');
+      const colors = h.themes.slice(0, 4).flatMap(t => t.colors.slice(0, 2)).filter(c => c !== '#000000').slice(0, 6);
+      return `<button onclick="openCategory('${h.id}')"><span class="emoji">${emoji}</span><b>${esc(words.join(' '))}</b>` +
+        `<small>${h.themes.length} themes</small><div class="stripe">${colors.map(c => `<span style="background:${c}"></span>`).join('')}</div></button>`;
+    }).join('');
+  }
 }
 // "Still" shows the same theme colors without animation.
 let themeStill = localStorage.getItem('tl_theme_still') === '1';
@@ -577,9 +671,12 @@ function setThemeStill(still) {
   $('tMove').classList.toggle('on', !still);
   $('tStill').classList.toggle('on', still);
 }
-function applyTheme(i) {
-  const t = currentThemes()[i];
+function applyTheme(holidayId, i) {
+  const t = HOLIDAYS.find(h => h.id === holidayId).themes[i];
   preset(t.colors, themeStill ? { ...t, mode: 0 } : t);
+  // Remember it under "Recently used" (shown on the Themes home page)
+  recent = [{ h: holidayId, name: t.name }, ...recent.filter(r => !(r.h === holidayId && r.name === t.name))].slice(0, 6);
+  localStorage.setItem(recentKey, JSON.stringify(recent));
 }
 
 // ─── Timers ───────────────────────────────────────────────────────────────────
