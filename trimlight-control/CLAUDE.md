@@ -134,8 +134,17 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - 34 Christmas
   - 20 Thanksgiving
   - 16 Patriotic (Fourth of July plus Veterans Day ones: Honor & Remember, Salute to Service, Yellow Ribbon, Purple Heart)
-  - 12 Game Day: 49ers (scarlet & gold) and Braves (navy, red & white). Team colors are brightened for LEDs.
-  - 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
+  - 18 Halloween
+  - 12 Game Day: the owner's teams, 49ers (scarlet & gold) and Braves (navy, red & white)
+  - 38 Football: all 32 NFL teams + 6 Texas college (Longhorns, Aggies, Red Raiders, Baylor, TCU, Houston).
+    One moving theme per team; the Still switch gives the steady version.
+  - 23 "More", including celebrations: Birthday, Gender Reveal, Wedding, Graduation, Mardi Gras,
+    Cinco de Mayo, Pride, Hanukkah, Lunar New Year, Pink Ribbon, Summer Nights, Ocean Breeze, …
+  - **LED color rules:**
+    - Reds must have **no blue** (the owner saw a Braves red of `#e0102a` as pink), so use `#ff0000`.
+    - Team navy is brightened to `#0a2a9a`.
+    - Team "black" is `#000000`, which shows as unlit gaps.
+  - The original 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
   - a Moving/Still switch that applies the same colors with mode 0
   - tapping a theme loads it into the Pattern Builder
 - **Timers:**

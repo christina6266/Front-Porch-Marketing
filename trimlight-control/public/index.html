@@ -22,7 +22,8 @@
   input[type=range] { width:100%; }
   .presets button { font-size:.85rem; padding:8px 10px; }
   .toggle button.on { background:var(--accent); }
-  #holidayTabs button { font-weight:600; }
+  #holidayTabs { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+  #holidayTabs button { font-weight:600; font-size:.82rem; padding:10px 4px; line-height:1.2; }
   .themes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .themes button { text-align:left; padding:10px; }
   .themes .stripe { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-bottom:6px; }
