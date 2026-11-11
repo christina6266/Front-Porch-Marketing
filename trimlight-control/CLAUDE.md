@@ -55,8 +55,10 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - **Sticky header:** controller/group dropdown, On / Off / ⏱ (schedule), and the status message.
   - **Bottom menu (`showScreen()`):** the last screen used is remembered in localStorage. Each card
     carries `data-screen` to say which screen it belongs to.
-    - **🎨 Themes:** 🔍 search across every tab (name, description, tab name), category chips in one
-      swipeable row, Moving/Still switch, and compact tiles 3 across.
+    - **🎨 Themes:** a home page with 🔍 search across every category (name, description, category),
+      the Moving/Still switch, **Recently used** (last 6, kept in localStorage `tl_recent`), and
+      **category cards**. Tapping a card opens that category's page (`openCategory`, adds a history
+      entry so the iPhone back swipe works). It shows "← All themes" and compact tiles 3 across.
     - **⏰ Timers**
     - **🖌 Builder:** Pattern Builder with 30 zones, color picker pop-up and My patterns.
     - **⚙️ More:** built-in animations (0–179), patterns on this controller, and the Diagnostics link.

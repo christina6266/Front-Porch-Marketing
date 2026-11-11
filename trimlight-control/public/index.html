@@ -12,7 +12,8 @@
   h1 { font-size: 1.4rem; margin: 8px 0 16px; }
   h2 { font-size: 1rem; margin: 0 0 12px; color: var(--muted); font-weight:600; }
   .card { background:var(--card); border-radius:14px; padding:16px; margin-bottom:14px; }
-  button { font: inherit; border:0; border-radius:10px; padding:12px 14px; background:#334155; color:var(--text); cursor:pointer; }
+  button { font: inherit; border:0; border-radius:10px; padding:12px 14px; background:#334155; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  button:active { filter:brightness(1.25); }
   button.primary { background:var(--accent); }
   button:disabled { opacity:.5; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -22,10 +23,19 @@
   input[type=range] { width:100%; }
   .presets button { font-size:.85rem; padding:8px 10px; }
   .toggle button.on { background:var(--accent); }
-  /* Category chips: one swipeable row */
-  #holidayTabs { display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; margin:0 -16px 10px; padding:0 16px 4px; scrollbar-width:none; }
-  #holidayTabs::-webkit-scrollbar { display:none; }
-  #holidayTabs button { flex:none; font-weight:600; font-size:.85rem; padding:8px 12px; border-radius:999px; white-space:nowrap; }
+  /* Themes home: category cards, 2 across */
+  .cats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cats button { text-align:left; padding:12px; display:flex; flex-direction:column; gap:6px; min-height:92px; }
+  .cats .emoji { font-size:1.6rem; line-height:1; }
+  .cats b { font-size:.95rem; }
+  .cats small { color:var(--muted); font-size:.75rem; }
+  .cats .stripe { display:flex; height:6px; border-radius:3px; overflow:hidden; margin-top:auto; }
+  .cats .stripe span { flex:1; }
+  .sub { font-size:.85rem; color:var(--muted); margin:4px 0 8px; font-weight:600; }
+  #recentWrap { margin-bottom:14px; }
+  .cat-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .cat-head button { padding:8px 12px; font-size:.9rem; }
+  .cat-head b { font-size:1.05rem; }
   .search { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #475569; background:#0f172a; color:var(--text); font:inherit; margin-bottom:10px; }
   /* Compact theme tiles, 3 across */
   .themes { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
@@ -129,12 +139,18 @@
     </header>
 
     <section class="card" data-screen="themes">
+      <!-- Home: search, recently used, category cards. Category page: back + that category's themes. -->
+      <div id="catHead" class="cat-head hidden">
+        <button onclick="history.back()">← All themes</button>
+        <b id="catTitle"></b>
+      </div>
       <input id="themeSearch" class="search" type="search" placeholder="🔍 Search all themes (e.g. Cowboys, ghost, blue)" oninput="renderThemes()" autocomplete="off" autocorrect="off" spellcheck="false">
-      <div id="holidayTabs" class="toggle"></div>
       <div class="toggle row" style="margin-bottom:10px">
         <button id="tMove" class="on" onclick="setThemeStill(false)">✨ Moving</button>
         <button id="tStill" onclick="setThemeStill(true)">● Still</button>
       </div>
+      <div id="recentWrap" class="hidden"><h3 class="sub">Recently used</h3><div id="recent" class="themes"></div></div>
+      <div id="categories" class="cats"></div>
       <div id="themes" class="themes"></div>
     </section>
 
@@ -307,6 +323,7 @@ function groupMembers(group) {
 // ─── Screens (bottom menu) ────────────────────────────────────────────────────
 let screen = localStorage.getItem('tl_screen') || 'themes';
 function showScreen(name) {
+  if (name === 'themes' && screen === 'themes' && themeView !== 'home') return history.back();
   screen = name;
   localStorage.setItem('tl_screen', name);
   document.querySelectorAll('[data-screen]').forEach(el => el.classList.toggle('off-screen', el.dataset.screen !== name));
@@ -591,16 +608,22 @@ async function deletePattern(id) {
   catch (e) { msg(e.message, false); }
 }
 
-// Remember the last holiday tab; default to Thanksgiving in November, Christmas otherwise.
-let holiday = localStorage.getItem('tl_holiday') || (new Date().getMonth() === 10 ? 'thanksgiving' : 'christmas');
-const currentThemes = () => (HOLIDAYS.find(h => h.id === holiday) || HOLIDAYS[0]).themes;
+// Themes screen: 'home' (categories) or a category id. Category pages get a history entry,
+// so the iPhone back swipe returns to the category list.
+let themeView = 'home';
+const recentKey = 'tl_recent';
+let recent = JSON.parse(localStorage.getItem(recentKey) || '[]');   // [{ h, name }] newest first
 
-function setHoliday(id) {
-  holiday = id;
+function openCategory(id) {
+  themeView = id;
   $('themeSearch').value = '';
-  localStorage.setItem('tl_holiday', id);
+  history.pushState({ themes: id }, '');
   renderThemes();
+  window.scrollTo(0, 0);
 }
+window.addEventListener('popstate', () => {
+  if (themeView !== 'home') { themeView = 'home'; renderThemes(); window.scrollTo(0, 0); }
+});
 
 function themeTile(holidayId, i, t, showTab) {
   const tab = showTab ? HOLIDAYS.find(h => h.id === holidayId).label.split(' ')[0] + ' ' : '';
@@ -610,20 +633,35 @@ function themeTile(holidayId, i, t, showTab) {
 
 function renderThemes() {
   const q = ($('themeSearch').value || '').trim().toLowerCase();
-  $('holidayTabs').innerHTML = HOLIDAYS.map(h =>
-    `<button class="${!q && h.id === holiday ? 'on' : ''}" onclick="setHoliday('${h.id}')">${h.label}</button>`).join('');
-  if (q) {
-    // Search every tab: theme names, descriptions and tab names
+  const cat = themeView !== 'home' && HOLIDAYS.find(h => h.id === themeView);
+  if (themeView !== 'home' && !cat) themeView = 'home';
+  show('catHead', !!cat);
+  show('themeSearch', !cat);
+  if (cat) $('catTitle').textContent = `${cat.label} · ${cat.themes.length}`;
+
+  if (cat) {                                   // one category's themes
+    show('recentWrap', false); $('categories').innerHTML = '';
+    $('themes').innerHTML = cat.themes.map((t, i) => themeTile(cat.id, i, t, false)).join('');
+  } else if (q) {                              // search every category
+    show('recentWrap', false); $('categories').innerHTML = '';
     const hits = HOLIDAYS.flatMap(h => h.themes.map((t, i) => ({ h, t, i })))
       .filter(({ h, t }) => (t.name + ' ' + t.note + ' ' + h.label).toLowerCase().includes(q));
     $('themes').innerHTML = hits.length ? hits.map(({ h, t, i }) => themeTile(h.id, i, t, true)).join('')
       : '<p class="empty-note">No themes match. Try another word.</p>';
-  } else {
-    const h = HOLIDAYS.find(x => x.id === holiday) || HOLIDAYS[0];
-    $('themes').innerHTML = h.themes.map((t, i) => themeTile(h.id, i, t, false)).join('');
+  } else {                                     // home: recently used + category cards
+    const rec = recent.map(r => {
+      const h = HOLIDAYS.find(x => x.id === r.h); const i = h ? h.themes.findIndex(t => t.name === r.name) : -1;
+      return i >= 0 ? themeTile(h.id, i, h.themes[i], true) : '';
+    }).filter(Boolean);
+    show('recentWrap', rec.length > 0); $('recent').innerHTML = rec.join('');
+    $('themes').innerHTML = '';
+    $('categories').innerHTML = HOLIDAYS.map(h => {
+      const [emoji, ...words] = h.label.split(' ');
+      const colors = h.themes.slice(0, 4).flatMap(t => t.colors.slice(0, 2)).filter(c => c !== '#000000').slice(0, 6);
+      return `<button onclick="openCategory('${h.id}')"><span class="emoji">${emoji}</span><b>${esc(words.join(' '))}</b>` +
+        `<small>${h.themes.length} themes</small><div class="stripe">${colors.map(c => `<span style="background:${c}"></span>`).join('')}</div></button>`;
+    }).join('');
   }
-  const active = $('holidayTabs').querySelector('.on');
-  if (active) active.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 // "Still" shows the same theme colors without animation.
 let themeStill = localStorage.getItem('tl_theme_still') === '1';
@@ -636,6 +674,9 @@ function setThemeStill(still) {
 function applyTheme(holidayId, i) {
   const t = HOLIDAYS.find(h => h.id === holidayId).themes[i];
   preset(t.colors, themeStill ? { ...t, mode: 0 } : t);
+  // Remember it under "Recently used" (shown on the Themes home page)
+  recent = [{ h: holidayId, name: t.name }, ...recent.filter(r => !(r.h === holidayId && r.name === t.name))].slice(0, 6);
+  localStorage.setItem(recentKey, JSON.stringify(recent));
 }
 
 // ─── Timers ───────────────────────────────────────────────────────────────────
