@@ -90,6 +90,21 @@ const HOLIDAYS = [
     T('Purple Heart', 'Purple & gold honoring the wounded', ['#7a00ff', '#ffc400'], 6, 5, 255, 40),
     T('Anchors Aweigh', 'Navy blue & white rolling out to sea', ['#001a80', '#ffffff', '#0030ff'], 13, 4, 255, 60),
   ]},
+  // Team colors tuned for LEDs (true team navy/gold read too dark on lights, so they're brightened).
+  { id: 'gameday', label: '🏈 Game Day', themes: [
+    T('49ers Red & Gold', 'Scarlet & gold, steady', ['#e00000', '#ffb000'], 0, 4, 255, 0),
+    T('Niners Faithful', 'Scarlet, gold & white marching along', ['#e00000', '#ffb000', '#ffffff'], 1, 4, 255, 70),
+    T('Gold Rush', 'Gold comets racing over scarlet', ['#ffb000', '#ffd27f', '#e00000', '#e00000'], 7, 4, 255, 190),
+    T('Niners Wave', 'Scarlet & gold rolling like the crowd', ['#e00000', '#ffb000'], 11, 6, 255, 90),
+    T('49ers Sparkle', 'Scarlet with twinkling gold', ['#e00000', '#e00000', '#ffb000'], 5, 2, 255, 130),
+    T('49ers Touchdown!', 'Scarlet, gold & white celebration', ['#e00000', '#ffb000', '#ffffff'], 9, 3, 255, 240),
+    T('Braves Navy & Red', 'Navy, red & white, steady', ['#0a2a9a', '#e0102a', '#ffffff'], 0, 4, 255, 0),
+    T('Braves Country', 'Navy & red breathing', ['#0a2a9a', '#e0102a'], 6, 5, 255, 45),
+    T('Braves Wave', 'Red, white & navy rolling by', ['#e0102a', '#ffffff', '#0a2a9a'], 11, 5, 255, 80),
+    T('Braves Twinkle', 'Navy sky with red & white sparkles', ['#0a2a9a', '#0a2a9a', '#e0102a', '#ffffff'], 5, 2, 255, 120),
+    T('Braves Home Run', 'Red & white bursting from the center', ['#e0102a', '#ffffff', '#0a2a9a'], 9, 3, 255, 220),
+    T('Braves Win!', 'Fast red, white & navy celebration', ['#e0102a', '#ffffff', '#0a2a9a'], 2, 2, 255, 230),
+  ]},
   { id: 'more', label: '🎉 More', themes: [
     T('Warm White', 'Classic everyday white', ['#ffb060'], 0, 1, 255, 0),
     T('Halloween', 'Orange & purple', ['#ff5000', '#7a00ff'], 0, 4, 255, 0),

@@ -134,6 +134,7 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - 34 Christmas
   - 20 Thanksgiving
   - 16 Patriotic (Fourth of July plus Veterans Day ones: Honor & Remember, Salute to Service, Yellow Ribbon, Purple Heart)
+  - 12 Game Day: 49ers (scarlet & gold) and Braves (navy, red & white). Team colors are brightened for LEDs.
   - 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
   - a Moving/Still switch that applies the same colors with mode 0
   - tapping a theme loads it into the Pattern Builder
@@ -150,6 +151,17 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
   - custom colors through a pop-up (45 shades, RGB sliders and numbers, hex)
   - house preview strip
   - save to My patterns (Show / Edit / Delete)
+
+## Work in progress
+- **"Hey Siri" via iPhone Shortcuts:** started, then paused when the owner asked for team themes.
+- Design:
+  - Public `GET /api/quick?key=…&lights=group:all&do=on|off|theme|pattern&holiday=…&theme=…&pattern=…&still=1`
+    returns a plain-text sentence that Siri reads aloud. It reuses `cleanTimer()` and `runTimer(t, '🗣 Siri')`.
+  - `key` = first 24 chars of base64url HMAC-SHA256(APP_PASSWORD, 'lights-app-shortcuts'), so it
+    survives redeploys, and changing APP_PASSWORD revokes it. `GET /api/shortcut-key` (signed in) returns it.
+  - Page card "🗣 Hey Siri": quick-start buttons, a link builder, Copy link, Test it, and
+    step-by-step Shortcuts instructions (Get Contents of URL → Show Result → rename → "Hey Siri, …").
+- Rebuild it from this description if the owner asks to resume.
 
 ## Ideas the owner liked but hasn't asked for yet
 - "Hey Siri" control through iPhone Shortcuts calling the API
