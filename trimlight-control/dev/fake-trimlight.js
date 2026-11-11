@@ -51,7 +51,7 @@ https.createServer({ key: fs.readFileSync(path.join(dir, 'k.pem')), cert: fs.rea
       if (e.id === -1 || !list.some(x => x.id === e.id)) e.id = nextId++;
       effects[b.deviceId] = [...list.filter(x => x.id !== e.id), e];
       payload = { id: e.id };
-      log(`SAVE ${b.deviceId} id=${e.id} "${e.name}" category=${e.category} mode=${e.mode} speed=${e.speed} brightness=${e.brightness} lit=${(e.pixels || []).filter(p => p.count).length}/${(e.pixels || []).length}`);
+      log(`SAVE ${b.deviceId} id=${e.id} "${e.name}" category=${e.category} mode=${e.mode} speed=${e.speed} brightness=${e.brightness} colors=${(e.pixels || []).filter(p => p.count).map(p => "#" + p.color.toString(16).padStart(6, "0")).join(",")} lit=${(e.pixels || []).filter(p => p.count).length}/${(e.pixels || []).length}`);
     } else if (endpoint === 'device/effect/preview') {
       log(`PREVIEW ${b.deviceId} (broken on real firmware!)`);
     } else log(`${endpoint.toUpperCase()} ${body}`);
