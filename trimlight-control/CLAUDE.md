@@ -149,10 +149,30 @@ No npm dependencies. Node 18+, built-in `http`/`https`/`crypto` only.
     One moving theme per team; the Still switch gives the steady version.
   - 23 "More", including celebrations: Birthday, Gender Reveal, Wedding, Graduation, Mardi Gras,
     Cinco de Mayo, Pride, Hanukkah, Lunar New Year, Pink Ribbon, Summer Nights, Ocean Breeze, …
-  - **LED color rules:**
-    - Reds must have **no blue** (the owner saw a Braves red of `#e0102a` as pink), so use `#ff0000`.
-    - Team navy is brightened to `#0a2a9a`.
-    - Team "black" is `#000000`, which shows as unlit gaps.
+  - **LED color rules.** These are RGB LEDs on a house, not a screen. Every theme color is chosen for
+    how it looks as light. New themes must use this palette (or follow the same rules):
+    - **Red** `#ff0000`, with **no blue mixed in** (the owner saw a blue-tinged red as pink).
+      Maroon/wine: `#a00000`–`#b00000`.
+    - **Orange** `#ff3c00` (pumpkin), burnt orange `#ff3500`, amber `#ff6000`–`#ff7800`.
+      Keep green low, because LED green is far brighter than red.
+    - **Gold** `#ff9000` / `#ff8800`; **yellow** `#ffb000`. Screen gold like `#ffc400` reads lemon or green-yellow.
+    - **Warm whites use blackbody values:**
+      - 3000K soft white `#ffb46b`
+      - 2700K warm white `#ffa957`
+      - deep warm white `#ff9a40`
+      - candle `#ff8020`
+      - Screen "cream" (`#fff1d6`) looks cold white.
+    - **Navy** is pure deep blue `#0010b4` / `#0008a0`. Green in navy washes it out.
+    - **Pale and icy blues** are saturated to `#80c0ff` / `#40b0ff` / `#2a90ff`; pale tints look white.
+    - **Pastels** are saturated (pink `#ff4090`, lavender `#9040ff`, spring green `#60ff20`, soft yellow `#ffb020`).
+    - **Pinks** keep blue low (`#ff2070`, `#ff1070`), or they look lavender.
+    - **Colors light can't make:**
+      - brown becomes rust `#a03000`
+      - olive becomes deep green `#4a8000` / `#3a5a00`
+      - silver/gray becomes dimmer white `#b4b4b4`
+      - black becomes `#000000`, an unlit gap
+    - Within a theme, keep colors clearly different (sum of RGB differences ≥ 30), or they blend into one on the house.
+    - The Pattern Builder palette is LED-tuned too: Y `#ffb000`, O `#ff3c00`, WW `#ffa957`, PI `#ff0070`.
   - The original 9 "More": Warm White, Halloween, Spooky, USA, Fireworks, St. Patrick's, Valentine's, Easter, New Year's Eve
   - a Moving/Still switch that applies the same colors with mode 0
   - tapping a theme loads it into the Pattern Builder

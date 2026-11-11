@@ -413,8 +413,9 @@ function bStep(n) { $('bMode').value = Math.max(0, Math.min(179, +$('bMode').val
 // ─── Pattern Builder ──────────────────────────────────────────────────────────
 // Up to 30 zones, each { color, count }. count 0 = empty (skipped). Trimlight repeats the pattern along the strip.
 const PALETTE = [
-  ['R', '#ff0000'], ['G', '#00ff00'], ['B', '#0000ff'], ['Y', '#ffff00'], ['PU', '#8000ff'], ['O', '#ff4000'], ['W', '#ffffff'],
-  ['WW', '#ffb060'], ['PI', '#ff0080'], ['C', '#00ffff'], ['BK', '#000000'],
+  // LED-tuned (see CLAUDE.md): yellow and orange carry less green, WW is a 2700K warm white.
+  ['R', '#ff0000'], ['G', '#00ff00'], ['B', '#0000ff'], ['Y', '#ffb000'], ['PU', '#8000ff'], ['O', '#ff3c00'], ['W', '#ffffff'],
+  ['WW', '#ffa957'], ['PI', '#ff0070'], ['C', '#00ffff'], ['BK', '#000000'],
 ];
 const ZONES = 30;
 let zones = Array.from({ length: ZONES }, () => ({ color: '#000000', count: 0 }));
